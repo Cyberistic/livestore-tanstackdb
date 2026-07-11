@@ -50,7 +50,8 @@
     "db:migrate": "DATABASE_URL=file:./prisma/dev.db prisma migrate diff --from-empty --to-schema ./prisma/schema.prisma --script > prisma/migrations/0001_init/migration.sql",
     "alchemy:dev": "alchemy dev",
     "alchemy:deploy": "alchemy deploy",
-    "alchemy:destroy": "alchemy destroy"
+    "alchemy:destroy": "alchemy destroy",
+    "destroy": "alchemy destroy"
   },
   "trustedDependencies": [
     "@parcel/watcher"

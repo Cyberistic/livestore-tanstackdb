@@ -1,5 +1,9 @@
 import alchemy from "alchemy"
-import { D1Database, DurableObjectNamespace, Worker } from "alchemy/cloudflare"
+import {
+  D1Database,
+  DurableObjectNamespace,
+  Vite,
+} from "alchemy/cloudflare"
 
 /**
  * Alchemy Stack for the LiveStore + TanStack DB demo.
@@ -9,10 +13,15 @@ import { D1Database, DurableObjectNamespace, Worker } from "alchemy/cloudflare"
  *     `prisma/schema.prisma`.
  *   - Durable Object namespace for the LiveStore `@livestore/sync-cf` sync
  *     backend (named `SYNC_BACKEND_DO` in `wrangler.toml`).
- *   - A single Worker that hosts both:
+ *   - A single Worker (`Cloudflare.Vite`) that hosts both:
  *       - The static SPA built by Vite (`./dist/client`).
  *       - The `/sync` WebSocket endpoint that streams events through the
  *         LiveStore sync backend DO, which mirrors them into D1.
+ *
+ * The `@cloudflare/vite-plugin` in `vite.config.ts` already produces a
+ * Worker bundle at `./dist/<env>/index.js` (with `wrangler.json`
+ * baked in — assets binding, DO bindings, D1 binding, migrations).
+ * We point `Vite` at that bundle and let alchemy upload it.
  *
  * Local dev workflow (no Cloudflare login needed):
  *
@@ -25,12 +34,8 @@ import { D1Database, DurableObjectNamespace, Worker } from "alchemy/cloudflare"
  *
  * Cloudflare deploy workflow (requires `bun alchemy login`):
  *
- *   bun run deploy     # plan + apply
+ *   bun run deploy     # plan + apply (rebuilds dist/ first)
  *   bun run destroy    # tear it all down
- *
- * Runs the alchemy CLI which provisions the real D1 + DO + Worker in
- * Cloudflare, applies migrations from `prisma/migrations/`, and ships
- * the bundled SPA from `dist/client/`.
  *
  * NOTE on alchemy v2: we tried `alchemy@next` (2.0.0-beta.x) +
  * `effect@4`. Its transitive `@effect/*@0.x` tree (pulled in by
@@ -53,19 +58,16 @@ export const syncBackend = await DurableObjectNamespace("sync-backend", {
   sqlite: true,
 })
 
-export const site = await Worker("site", {
+export const site = await Vite("site", {
   name: "livestore-tanstack-db-site",
-  entrypoint: "./src/cf-worker/index.ts",
+  entrypoint: "./dist/livestore_tanstack_db_site/index.js",
+  assets: "./dist/client",
   bindings: {
     DB: db,
     SYNC_BACKEND_DO: syncBackend,
   },
   compatibilityDate: "2025-05-08",
   compatibilityFlags: ["enable_request_signal", "nodejs_compat"],
-  assets: {
-    binding: "ASSETS",
-    directory: "./dist/client",
-  },
   adopt: true,
 })
 
