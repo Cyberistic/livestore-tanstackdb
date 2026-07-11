@@ -41,7 +41,7 @@
   },
   "scripts": {
     "build": "vite build",
-    "deploy": "alchemy deploy",
+    "deploy": "bun run build && alchemy deploy",
     "dev": "vite --force",
     "preview": "vite preview",
     "test": "playwright test",
