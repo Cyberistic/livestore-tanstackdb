@@ -1,0 +1,58 @@
+{
+  "name": "livestore-tanstack-db",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@livestore/adapter-web": "0.4.0",
+    "@livestore/livestore": "0.4.0",
+    "@livestore/peer-deps": "0.4.0",
+    "@livestore/react": "0.4.0",
+    "@livestore/sync-cf": "0.4.0",
+    "@livestore/wa-sqlite": "0.4.0",
+    "@overengineering/fps-meter": "0.2.4",
+    "@prisma/client": "^7.8.0",
+    "@tanstack/db": "0.6.14",
+    "@tanstack/react-db": "0.1.92",
+    "prisma": "^7.8.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-error-boundary": "6.1.1",
+    "todomvc-app-css": "2.4.3"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "1.13.12",
+    "@cloudflare/workers-types": "4.20251118.0",
+    "@livestore/devtools-vite": "0.4.0-dev.25",
+    "@parcel/watcher": "^2.5.6",
+    "@playwright/test": "1.59.1",
+    "@prisma/generator-helper": "^7.8.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "5.1.2",
+    "alchemy": "0.93.12",
+    "tsx": "^4.23.0",
+    "typescript": "6.0.3",
+    "vite": "7.3.1",
+    "wrangler": "4.42.2"
+  },
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "build": "vite build",
+    "deploy": "bun run build && bunx wrangler deploy",
+    "dev": "vite --force",
+    "preview": "vite preview",
+    "test": "playwright test",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:migrate": "DATABASE_URL=file:./prisma/dev.db prisma migrate diff --from-empty --to-schema ./prisma/schema.prisma --script > prisma/migrations/0001_init/migration.sql",
+    "alchemy:dev": "alchemy dev",
+    "alchemy:deploy": "alchemy deploy",
+    "alchemy:destroy": "alchemy destroy"
+  },
+  "trustedDependencies": [
+    "@parcel/watcher"
+  ]
+}

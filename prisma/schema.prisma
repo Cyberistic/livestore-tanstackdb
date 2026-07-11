@@ -1,0 +1,53 @@
+// Prisma schema: the single source of truth for the LiveStore + TanStack DB
+// todo model. Two generators consume it:
+//
+//   1. `effect_client` — emits `@livestore/utils/effect` `Schema.*` values
+//      into `generated/client-schemas/index.ts`, which the LiveStore `tables.*`
+//      declarations re-use directly. This is what the LiveStore SQLite
+//      materializer actually validates against.
+//
+//   2. `client` — the standard Prisma Client, useful for ad-hoc D1 reads.
+//
+// `provider = "sqlite"` is what Prisma uses for local type checking +
+// migration generation. The actual D1 database is provisioned by
+// Alchemy (`alchemy.run.ts`) and Prisma's migration SQL is diff'd into
+// `prisma/migrations/` then pointed at via `Cloudflare.D1.Database`'s
+// `migrationsDir`.
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+generator effect_client {
+  provider = "node ./generators/effect-schema.cjs"
+  output   = "./generated/client-schemas/index.ts"
+}
+
+model Todo {
+  id        String    @id
+  text      String
+  completed Boolean   @default(false)
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("todos")
+}
+
+// LiveStore's `events` log. This is the durable, queryable mirror that
+// the LiveStore sync-cf Durable Object writes to on every `onPush`. It
+// is *not* the source of truth — LiveStore's own SQLite event log is —
+// but it lets you replay history into other systems, run analytics, or
+// rebuild a region from a backup.
+model Event {
+  id        Int      @id @default(autoincrement())
+  storeId   String   @map("store_id")
+  name      String
+  args      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([storeId, id])
+  @@map("events")
+}
