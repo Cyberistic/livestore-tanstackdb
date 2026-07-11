@@ -1,6 +1,5 @@
 import { eq } from '@tanstack/db'
 import { useLiveQuery } from '@tanstack/react-db'
-import { useQuery } from '@livestore/react'
 
 import { uiState$ } from '../livestore/queries.ts'
 import { useAppStore } from '../livestore/store.ts'
@@ -10,7 +9,7 @@ import type { Todo } from '../db/todoSchema.ts'
 export const MainSection: React.FC = () => {
   const store = useAppStore()
   const todos = useTodoCollection()
-  const { filter } = useQuery(uiState$) as unknown as {
+  const { filter } = store.useQuery(uiState$, { store: store as never }) as unknown as {
     newTodoText: string
     filter: 'all' | 'active' | 'completed'
   }

@@ -1,6 +1,5 @@
 import { useCallback } from 'react'
 
-import { useQuery } from '@livestore/react'
 import { uiState$ } from '../livestore/queries.ts'
 import { events } from '../livestore/schema.ts'
 import { useAppStore } from '../livestore/store.ts'
@@ -9,7 +8,7 @@ import { useTodoCollection } from '../db/todoCollection.ts'
 export const Header = () => {
   const store = useAppStore()
   const todos = useTodoCollection()
-  const { newTodoText } = useQuery(uiState$) as unknown as {
+  const { newTodoText } = store.useQuery(uiState$, { store: store as never }) as unknown as {
     newTodoText: string
     filter: 'all' | 'active' | 'completed'
   }

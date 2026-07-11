@@ -1,6 +1,5 @@
 import { eq } from '@tanstack/db'
 import { useLiveQuery } from '@tanstack/react-db'
-import { useQuery } from '@livestore/react'
 import { useCallback } from 'react'
 
 import { uiState$ } from '../livestore/queries.ts'
@@ -11,7 +10,7 @@ import { useTodoCollection } from '../db/todoCollection.ts'
 export const Footer = () => {
   const store = useAppStore()
   const todos = useTodoCollection()
-  const { filter } = useQuery(uiState$) as unknown as {
+  const { filter } = store.useQuery(uiState$, { store: store as never }) as unknown as {
     newTodoText: string
     filter: 'all' | 'active' | 'completed'
   }
