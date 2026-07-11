@@ -85,9 +85,12 @@ export default {
 
     // Everything else falls through to the SPA static assets. The
     // ASSETS binding is injected by Alchemy when `assets` is set on
-    // the Worker resource.
-    const response = await env.ASSETS.fetch(request as unknown as Request)
-    if (response.status !== 404) return response as unknown as CfTypes.Response
+    // the Worker resource — it doesn't exist in `vite dev` mode, where
+    // Vite serves the SPA itself. Guard accordingly.
+    if (env.ASSETS) {
+      const response = await env.ASSETS.fetch(request as unknown as Request)
+      if (response.status !== 404) return response as unknown as CfTypes.Response
+    }
 
     return new Response('Not Found', { status: 404 })
   },
