@@ -10,7 +10,7 @@ import { SyncPayload, schema } from './schema.ts'
 const storeId = getStoreId()
 
 const adapter = makePersistedAdapter({
-  storage: { type: ['opfs'] } as never,
+  storage: { type: 'opfs' as const },
   worker: LiveStoreWorker,
   sharedWorker: LiveStoreSharedWorker,
 })
