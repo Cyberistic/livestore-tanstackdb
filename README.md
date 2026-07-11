@@ -1,4 +1,8 @@
+
+
+
 # LiveStore × TanStack DB + (bonus Prisma-Effect-Generator)
+https://github.com/user-attachments/assets/83bebbe2-2a50-4f1b-9add-536811eb756b
 
 An end-to-end demo of the [LiveStore](https://livestore.dev) sync engine wired into [TanStack DB](https://tanstack.com/db) collections.
 
