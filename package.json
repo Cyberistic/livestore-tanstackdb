@@ -41,8 +41,8 @@
   },
   "scripts": {
     "build": "vite build",
-    "deploy": "bun run build && bunx wrangler deploy",
-    "dev": "vite --force",
+    "deploy": "alchemy deploy",
+    "dev": "alchemy dev",
     "preview": "vite preview",
     "test": "playwright test",
     "typecheck": "tsc --noEmit",
