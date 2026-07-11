@@ -42,7 +42,7 @@
   "scripts": {
     "build": "vite build",
     "deploy": "alchemy deploy",
-    "dev": "alchemy dev",
+    "dev": "vite --force",
     "preview": "vite preview",
     "test": "playwright test",
     "typecheck": "tsc --noEmit",
