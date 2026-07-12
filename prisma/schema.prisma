@@ -1,10 +1,10 @@
 // Prisma schema: the single source of truth for the LiveStore + TanStack DB
 // todo model. Two generators consume it:
 //
-//   1. `effect_client` — emits `@livestore/utils/effect` `Schema.*` values
-//      into `generated/client-schemas/index.ts`, which the LiveStore `tables.*`
-//      declarations re-use directly. This is what the LiveStore SQLite
-//      materializer actually validates against.
+//   1. `effect_client` — the published `prisma-effect-schema-generator`
+//      npm package. Emits `@livestore/utils/effect` `Schema.*` values
+//      plus the introspection maps the integration factory consumes
+//      (`PRIMARY_KEY_COLUMNS`, `SOFT_DELETE_COLUMNS`, `TABLES`).
 //
 //   2. `client` — the standard Prisma Client, useful for ad-hoc D1 reads.
 //
@@ -23,8 +23,15 @@ generator client {
 }
 
 generator effect_client {
-  provider = "node ./generators/effect-schema.cjs"
-  output   = "./generated/client-schemas/index.ts"
+  provider          = "prisma-effect-schema-generator"
+  output            = "./generated/client-schemas/index.ts"
+  effectImport      = "@livestore/utils/effect"
+  // Introspection maps the integration factory consumes:
+  idColumn          = "true"
+  softDeleteColumn  = "true"
+  tables            = "true"
+  exportModelNames  = "true"
+  exportModelNameType = "true"
 }
 
 model Todo {

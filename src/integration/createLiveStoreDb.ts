@@ -4,8 +4,8 @@ import {
   PRIMARY_KEY_COLUMNS,
   SOFT_DELETE_COLUMNS,
   TABLES,
-  type ColumnDef,
-  type ColumnType,
+  type ColumnDescriptor,
+  type TableDescriptor,
   type ModelName,
 } from '../../prisma/generated/client-schemas/index.ts'
 import { toStandardSchemaV1 } from './standardSchema.ts'
@@ -45,6 +45,24 @@ export interface LiveStoreDbConfig<T extends GeneratedSchemas> {
   clientDocuments?: Record<string, Schema.Schema.Any | ClientDocumentInput>
   events?: Partial<Record<keyof T & string, DefaultEventConfig>>
   version?: string
+
+  /**
+   * Tables that should NOT get client-side write APIs even though
+   * `TABLES[model].includedInSync` is `true`. Audit logs, event
+   * mirrors, etc. — the DO/server writes to them, the client only reads.
+   *
+   * Pairs with `TABLES[m].includedInSync` from the generator:
+   * - If `includedInSync: false` (upstream autodetected): server-only
+   *   regardless of this list.
+   * - If `includedInSync: true` and name is in this list: server-only
+   *   (consumer override; e.g. `Event` table that the upstream hasn't
+   *   flagged yet because the `idColumn` autodetect PR hasn't landed).
+   * - Otherwise: client-writable.
+   *
+   * The downstream `useTable(name)` / `createLazyDb({ serverOnly })`
+   * both consult this list to refuse commit handlers.
+   */
+  serverOnlyTables?: ReadonlyArray<keyof T & string>
 }
 
 export interface LiveStoreDb<T extends GeneratedSchemas> {
@@ -133,7 +151,7 @@ export const createLiveStoreDb = <T extends GeneratedSchemas>(
     const softDeleteCol =
       cfg.softDeleteColumn !== undefined
         ? cfg.softDeleteColumn
-        : SOFT_DELETE_COLUMNS[mName]
+        : (SOFT_DELETE_COLUMNS as Record<string, string | undefined>)[mName]
 
     tables[modelName] = State.SQLite.table({
       name: tableMeta.name,
@@ -231,4 +249,4 @@ export const createLiveStoreDb = <T extends GeneratedSchemas>(
 export { getKeyFromSchema } from './getKeyFromSchema.ts'
 export { softDeleteLivePredicate } from './softDeleteLivePredicate.ts'
 export { PRIMARY_KEY_COLUMNS, SOFT_DELETE_COLUMNS, TABLES } from '../../prisma/generated/client-schemas/index.ts'
-export type { ModelName, ColumnDef, ColumnType } from '../../prisma/generated/client-schemas/index.ts'
+export type { ModelName, ColumnDescriptor, TableDescriptor } from '../../prisma/generated/client-schemas/index.ts'

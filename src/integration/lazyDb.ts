@@ -66,6 +66,7 @@ import {
   liveStoreCollectionOptions,
   type LiveStoreRow,
 } from '../db/liveStoreCollection.ts'
+import { TABLES } from '../../prisma/generated/client-schemas/index.ts'
 import { useLiveStoreConfig } from './LiveStoreProvider.tsx'
 import { useTable } from './useTable.ts'
 
@@ -374,7 +375,11 @@ export const createLazyDb = (
   tables: Record<string, unknown>,
   options: LazyDbOptions = {},
 ): Readonly<Record<string, unknown>> => {
-  const serverOnly = new Set(options.serverOnly ?? [])
+  const serverOnly = new Set<string>(options.serverOnly ?? [])
+  // Fold in any upstream-detected server-only tables: TABLES[m].includedInSync === false.
+  for (const [name, meta] of Object.entries(TABLES) as Array<[string, { includedInSync: boolean }]>) {
+    if (meta.includedInSync === false) serverOnly.add(name)
+  }
   const inferredModelNames = options.events
     ? inferModelNamesFromEvents(tables, options.events)
     : {}
