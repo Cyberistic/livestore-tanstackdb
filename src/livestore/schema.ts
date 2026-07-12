@@ -7,32 +7,26 @@ import {
   TodoSchema,
 } from '../../prisma/generated/client-schemas/index.ts'
 
+const UiStateSchema = toStandardSchemaV1(
+  Schema.Struct({
+    newTodoText: Schema.String,
+    filter: Schema.Union(
+      Schema.Literal('all'),
+      Schema.Literal('active'),
+      Schema.Literal('completed'),
+    ),
+  }),
+)
+
 const db = createLiveStoreDb({
-  models: { Todo: TodoSchema, Event: EventSchema },
   // Prisma's `@@map("todos")` / `@@map("events")` produces these
-  // SQL names. The factory's default `camelToSnake` would give
-  // `todo`/`event` instead, which wouldn't match the DDL.
+  // SQL names. Default `camelToSnake` would give `todo`/`event`.
   tableNames: { Todo: 'todos', Event: 'events' },
+  models: { Todo: TodoSchema, Event: EventSchema },
   clientDocuments: {
     uiState: {
-      // Tier 2.3: wrap with `toStandardSchemaV1` so the schema's
-      // `Context = never` survives the trip into `clientDocument`'s
-      // `Input<TType>` parameter. The helper also exposes the
-      // `~standard` brand for TanStack DB's collection schema slot.
-      schema: toStandardSchemaV1(
-        Schema.Struct({
-          newTodoText: Schema.String,
-          filter: Schema.Union(
-            Schema.Literal('all'),
-            Schema.Literal('active'),
-            Schema.Literal('completed'),
-          ),
-        }),
-      ),
-      default: {
-        id: SessionIdSymbol,
-        value: { newTodoText: '', filter: 'all' as const },
-      },
+      schema: UiStateSchema,
+      default: { id: SessionIdSymbol, value: { newTodoText: '', filter: 'all' as const } },
     },
   },
 })
