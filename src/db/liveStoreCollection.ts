@@ -146,7 +146,7 @@ export function liveStoreCollectionOptions<
       }
 
       for (const message of messages) {
-        write(message as never)
+        write(message)
       }
 
       commit()
@@ -179,7 +179,7 @@ export function liveStoreCollectionOptions<
 
         begin({ immediate: true })
         for (const row of seen.values()) {
-          write({ type: 'insert', value: row, key: getKey(row) } as never)
+          write({ type: 'insert', value: row })
         }
         commit()
         snapshot = seen
