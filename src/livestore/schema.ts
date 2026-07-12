@@ -20,9 +20,6 @@ const UiStateSchema = toStandardSchemaV1(
 )
 
 const lsdb = createLiveStoreDb({
-  // Prisma's `@@map("todos")` / `@@map("events")` produces these
-  // SQL names. Default `camelToSnake` would give `todo`/`event`.
-  tableNames: { Todo: 'todos', Event: 'events' },
   models: { Todo: TodoSchema, Event: EventSchema },
   clientDocuments: {
     uiState: {
