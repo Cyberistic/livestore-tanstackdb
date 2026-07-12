@@ -2,7 +2,7 @@ import { queryDb } from '@livestore/livestore'
 import type { Queryable, Store } from '@livestore/livestore'
 import { createCollection } from '@tanstack/db'
 import type { Collection } from '@tanstack/db'
-import { useMemo } from 'react'
+import { use as reactUse, useMemo } from 'react'
 
 import { liveStoreCollectionOptions, type LiveStoreRow } from '../db/liveStoreCollection.ts'
 import { tables, events, schema } from '../livestore/schema.ts'
@@ -223,19 +223,17 @@ const buildQuery = <TName extends TableName>(
  * factory's `events` map; the caller never sees the
  * `liveStoreCollectionOptions` boilerplate.
  *
- * Memoised per `(store, name, label, where)` — strict-mode double
- * renders won't create two collections.
+ * The collection itself is sourced from the module-level cache via
+ * {@link getCollection}, so a `useTable.preload(name)` in a TanStack
+ * Router loader and a `useTable(name)` here in a component share the
+ * same `Collection` instance (and the same LiveStore subscription).
+ * Strict-mode double renders are a no-op — the cache returns the
+ * same Promise for the same `(name, label, where)` triple.
  */
 export function useTable<TName extends TableName>(
   name: TName,
   options: UseTableOptions = {},
 ): UseTableResult<TName> {
-  // Suspends until the LiveStore store is ready; once resolved, every
-  // subsequent render returns the resolved `Store` instance synchronously,
-  // so `useMemo` below can pass it to `liveStoreCollectionOptions` without
-  // re-suspending.
-  const store = useAppStore()
-
   // Tier 0.6 hookup: pull the optional oRPC client off the React tree
   // via <LiveStoreProvider>. Falls back to `null` when no provider is
   // mounted (the common case in this demo) — `createMutations`
@@ -243,31 +241,28 @@ export function useTable<TName extends TableName>(
   const liveStoreConfig = useLiveStoreConfig()
   const contextRpcClient = liveStoreConfig?.oRPC
 
-  const label = options.label ?? 'all'
-  const where = options.where ?? DEFAULT_WHERE
-  const whereKey = JSON.stringify(where)
+  // Resolve the (possibly cached) collection. `getCollection` awaits
+  // the store internally, so `React.use` here suspends until BOTH
+  // the store and the collection are ready. Subsequent renders with
+  // the same Promise return synchronously without re-suspending.
+  const collectionPromise = getCollection(name, options, contextRpcClient)
+  const collection = reactUse(collectionPromise) as Collection<
+    RowOf<TName>,
+    string
+  >
 
-  return useMemo(() => {
-    const table = tables[name] as (typeof tables)[TName]
-    const query = buildQuery(name, { where, label })
+  const table = tables[name] as (typeof tables)[TName]
 
-    const callbacks = buildCommitCallbacks(store, name, options, contextRpcClient)
-
-    const collection = createCollection<RowOf<TName>, string>(
-      liveStoreCollectionOptions<RowOf<TName>>({
-        id: `${lcFirst(name)}-${label}-${whereKey}`,
-        store,
-        query,
-        getKey,
-        ...callbacks,
-      }),
-    )
-
-    return { collection, table, schema } satisfies UseTableResult<TName>
-    // `store` is stable (same Promise → same Store), so we only need
-    // to recompute when the inputs change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store, name, label, whereKey])
+  // Keep the result object referentially stable across renders so
+  // downstream consumers that destructure `{ collection }` (and use
+  // it as a hook dep / `useEffect` dep) don't re-fire on every
+  // render. `table` is a LiveStore module-level singleton (stable
+  // across renders), `collection` is the same cache hit (stable),
+  // and `schema` is a static import (stable).
+  return useMemo(
+    () => ({ collection, table, schema }) as UseTableResult<TName>,
+    [collection, table],
+  )
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -342,22 +337,131 @@ export function useTables<Spec extends UseTablesSpec>(
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// getCollection — module-level cache shared by useTable + preload
+// ─────────────────────────────────────────────────────────────────────
+
+/**
+ * Module-level cache of in-flight + resolved `Collection` promises.
+ *
+ * Keyed by `(name, label, whereKey)` — the same triple that becomes
+ * the TanStack DB collection's `id` further down. The cache outlives
+ * React's component lifecycle, so a `useTable.preload('Todo')` call
+ * from a TanStack Router loader and a `useTable('Todo')` call from a
+ * component share the same collection instance (and the same
+ * LiveStore subscription).
+ *
+ * The Promise is stored, not the resolved Collection, so that
+ * concurrent callers for the same key all `await` the SAME in-flight
+ * load — no duplicate `createCollection(...)` calls, no duplicate
+ * subscriptions against LiveStore.
+ */
+const collectionCache = new Map<
+  string,
+  Promise<Collection<LiveStoreRow, string>>
+>()
+
+const collectionCacheKey = (
+  name: TableName,
+  label: string,
+  whereKey: string,
+): string => `${name}|${label}|${whereKey}`
+
+/**
+ * Resolve a TanStack DB collection for `(name, options)` — creating
+ * it on first call, returning the cached `Promise<Collection>` on
+ * subsequent calls. Internal — exported only for `useTable.preload`
+ * and for the `disposeCollections` test helper.
+ *
+ * The returned promise resolves once BOTH the LiveStore store and
+ * the collection have been built. Callers inside React can `await`
+ * it directly (the `useTable` hook suspends via `React.use`); callers
+ * outside React (TanStack Router loaders) can `await` it the same
+ * way. Idempotent on the cache key.
+ *
+ * Browser-only — `createStorePromise` needs OPFS / a web worker, both
+ * of which are absent in SSR / Workers environments. The `preload`
+ * static method adds an SSR guard; this function does not.
+ */
+export const getCollection = <TName extends TableName>(
+  name: TName,
+  options: UseTableOptions = {},
+  contextRpcClient: unknown = undefined,
+): Promise<Collection<RowOf<TName>, string>> => {
+  const label = options.label ?? 'all'
+  const where = options.where ?? DEFAULT_WHERE
+  const whereKey = JSON.stringify(where)
+  const key = collectionCacheKey(name, label, whereKey)
+
+  const cached = collectionCache.get(key)
+  if (cached) return cached as Promise<Collection<RowOf<TName>, string>>
+
+  const promise = (async (): Promise<Collection<RowOf<TName>, string>> => {
+    const { store } = await getOrCreateAppStore()
+    const query = buildQuery(name, { where, label })
+    const callbacks = buildCommitCallbacks(store, name, options, contextRpcClient)
+    return createCollection<RowOf<TName>, string>(
+      liveStoreCollectionOptions<RowOf<TName>>({
+        id: `${lcFirst(name)}-${label}-${whereKey}`,
+        store,
+        query,
+        getKey,
+        ...callbacks,
+      }),
+    )
+  })()
+  collectionCache.set(key, promise)
+  return promise
+}
+
+/**
+ * Drop all cached collections. Test-only — pair with
+ * `disposeAppStore()` from `livestore/store.ts` for a fully clean
+ * slate between tests. The `Collection` instances themselves aren't
+ * formally "closed" (TanStack DB doesn't expose a teardown API), but
+ * dropping them from the cache ensures the next render / preload
+ * creates fresh ones against the (reset) store.
+ */
+export const disposeCollections = (): void => {
+  collectionCache.clear()
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // useTable.preload — for TanStack Router loaders
 // ─────────────────────────────────────────────────────────────────────
 
 /**
- * Kick off the LiveStore store load from a non-React context
- * (TanStack Router loader, event handler, etc.). Returns the same
- * `Promise<Store>` that `useAppStore()` will eventually resolve,
- * so the loader can `await` it to gate the route render on store
- * readiness if it wants to.
+ * Preload a collection (and the underlying LiveStore store) from a
+ * non-React context — TanStack Router loaders, route handlers,
+ * scripts. Returns a `Promise<Collection>` that resolves once the
+ * collection has been created and is ready to be read.
  *
- * No-op outside the browser — `createStorePromise` needs OPFS / a
- * web worker, neither of which exist in SSR / Workers environments.
+ * Multiple in-flight calls for the same `(name, label, where)`
+ * return the same Promise — the cache lives at module scope and
+ * outlives React's component lifecycle, so a `preload` from a loader
+ * and the matching `useTable(name)` in a component share one
+ * collection instance.
+ *
+ * No-op outside the browser — resolves to `null` so loaders can
+ * `await` without crashing on SSR / Workers, where `createStorePromise`
+ * can't actually build a store (no OPFS, no web worker).
+ *
+ * @example
+ * ```ts
+ * // In a TanStack Router loader:
+ * export const Route = createFileRoute('/lessons')({
+ *   loader: async () => {
+ *     await useTable.preload('Lesson')
+ *     // ^ runs in loader, no React tree, no provider
+ *   },
+ * })
+ * ```
  */
-useTable.preload = (): Promise<ReturnType<typeof useAppStore>> => {
-  if (typeof window === 'undefined') return Promise.resolve(null as never)
-  return getOrCreateAppStore()
+useTable.preload = <TName extends TableName>(
+  name: TName,
+  options: UseTableOptions = {},
+): Promise<Collection<RowOf<TName>, string> | null> => {
+  if (typeof window === 'undefined') return Promise.resolve(null)
+  return getCollection(name, options)
 }
 
 // Type augmentation so `useTable.preload` shows up in IDEs.
@@ -366,7 +470,10 @@ export interface UseTableHook {
     name: TName,
     options?: UseTableOptions,
   ): UseTableResult<TName>
-  preload: () => Promise<ReturnType<typeof useAppStore>>
+  preload: <TName extends TableName>(
+    name: TName,
+    options?: UseTableOptions,
+  ) => Promise<Collection<RowOf<TName>, string> | null>
 }
 
 // Re-export the client-doc event helper so callers can grab the
