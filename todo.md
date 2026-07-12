@@ -58,14 +58,14 @@ Top 3 the user picked:
 | 1.3 | `useTable(name, { where })` server-side filter | ⏳ | Combines 0.2 + 1.5 below. |
 | 1.4 | Bulk-import via `useTables({ teacherProfiles: { where }, lessons: { sort } })` | ⏳ | Returns a `Map<name, collection>`. Memoized once. |
 | 1.5 | `useTable(name).preload()` for TanStack Router loaders | ⏳ | Needs to not require `<StoreRegistryProvider>` in the loader. Solve by keeping a module-level store ref + a `getOrCreateStore()` that works outside React. |
-| 1.6 | oRPC ↔ LiveStore write-back is generated, not handwritten | ⏳ | (Tied to Top 3 #2.) |
+| 1.6 | oRPC ↔ LiveStore write-back is generated, not handwritten | ⏳ | (Top 3 #2.) Concrete shape from `alkitab-alhakeem/apps/web/src/lib/db-client.ts:80-90` — every `liveStoreCollectionOptions({ commitUpdate: (o,c) => { commitRow(store, "XUpserted", { row: {...o,...c} }); void rpc.teacher.updateOwnProfile({...}) } })`. The factory should accept `{ rpc: { teacher: { updateOwnProfile: { event: "teacherProfileUpserted" } } } }` and synthesize the merge → commitRow + oRPC fire. With alkitab-alhakeem as the pilot, this would eliminate ~170 lines across 17 hooks. |
 | 1.7 | Bulk optimistic actions (`insert N rows` → single `v1.XBulkUpserted`) | ⏳ | Build on top of 0.3. |
 
 ## Tier 2 — quality of life that should be free
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 2.1 | Lazy db proxy: `import { teacherProfiles }` keeps working post-migration | ⏳ | Top 3 #3. Use a Proxy on `db` that resolves `db.teacherProfiles` to the right `useTeacherProfilesCollection()`-style result. |
+| 2.1 | Lazy db proxy: `import { teacherProfiles }` keeps working post-migration | ⏳ | Top 3 #3. Use a Proxy on `db` that resolves `db.teacherProfiles` to the right `useTeacherProfilesCollection()`-style result. **Pilot use case:** `alkitab-alhakeem` has 60+ files importing top-level collection constants from `@/lib/db-client`; the proxy lets those imports resolve to live hooks inside React and to plain collections in loaders, eliminating `scripts/refactor-db-client-hooks.ts` entirely. |
 | 2.2 | Auto-injection of hook calls via TS transformer | 🚫 | Out of scope; would need a custom AST transform. Use 2.1 instead. |
 | 2.3 | Emit `Schema.standardSchemaV1(...)` in the generator | ⏳ | Depends on upstream `prisma-effect-schema-generator` shipping a flag. Open a PR against `Cyberistic/Prisma-Effect-Schema-Generator`. Without it, call sites have to wrap with `Schema.standardSchemaV1(...)`. |
 | 2.4 | `useLiveQuery` with `select` projection returning RefProxy | ⏳ | TanStack DB supports it; need to make sure the Effect schema flows through `q.from({ x: useTable("X") }).select(...)` correctly. |
@@ -114,6 +114,88 @@ Top 3 the user picked:
    - `emitStandardSchema` — boolean, default `false` in v1, opt-in
    - `relationColumns` — currently skipped; consider emitting
      `Schema.Struct` per relation for downstream composability
+
+---
+
+## Concrete shape — what 0.6 looks like in real code
+
+Pilot source: `alkitab-alhakeem/apps/web/src/lib/db-client.ts:80-90, 130-150, 195-215`.
+
+```ts
+// Today (manual, × 17):
+useTeacherProfilesCollection = () => {
+  const store = useStore()
+  return useMemo(() => createCollection(
+    liveStoreCollectionOptions<TeacherProfile>({
+      id: "teacherProfiles", store,
+      query: allTeacherProfiles$,
+      commitUpdate: (original, changes) => {
+        const merged = { ...original, ...changes }
+        commitRow(store, "teacherProfileUpserted", { row: merged })
+        void rpc.teacher.updateOwnProfile({
+          bio: merged.bio ?? null,
+          specialization: merged.specialization ?? null,
+        })
+      },
+    }),
+  ), [store])
+}
+
+// With Tier 0.6 — declarative, no callback boilerplate:
+useTeacherProfilesCollection = () =>
+  useTable("TeacherProfile", {
+    rpc: {
+      teacher: {
+        updateOwnProfile: { map: row => row },
+      },
+    },
+  })
+```
+
+API surface we're targeting:
+
+```ts
+useTable<TModel>(name, {
+  rpc?: { [namespace]: { [procedure]: { map?: (row, original?) => any } } },
+  where?: { ... },
+  sort?: { ... },
+})
+```
+
+The factory auto-synthesizes:
+- `commitInsert → store.commit(events[`v1.${T}Created`]) + rpc.ns.proc({...row})`
+- `commitUpdate → store.commit(events[`v1.${T}Upserted`]) + rpc.ns.proc({...original, ...changes})`
+- `commitDelete → rpc.ns.proc.delete({id})`
+
+Agent 1's `createLiveStoreDb` already returns `{ tables, events, materializers, schema }`. Tier 0.6 just needs a `mutations` parameter on `createCollection` (or a parallel `createTableOptions` factory) that wires the oRPC handlers on top of the existing `liveStoreCollectionOptions` adapter.
+
+---
+
+## Files in this repo
+
+| Path | Status |
+|------|--------|
+| `src/integration/createLiveStoreDb.ts` | 🚧 Factory — emits tables/events/materializers/schema from generator output. `commitRow`-style oRPC write-back not yet wired. |
+| `src/integration/useTable.ts` | ⏳ TanStack DB glue — drafted, needs keying fix + lazy store per Agent 1's `camelToSnake` table keys |
+| `src/integration/lazy-db.ts` | ⏳ Tier 2.1 — `import { X } from "@/lib/db"` proxy that resolves to the right `useXCollection()` |
+| `src/integration/LiveStoreProvider.tsx` | ⏳ |
+| `src/integration/standardSchema.ts` | ⏳ `Schema.standardSchemaV1(...)` wrap (Tier 2.3) |
+| `src/livestore/schema.ts` | existing 89-line → now ~36 lines via the factory (Agent 1's commit `a949f05c`) |
+| `alchemy.run.ts` | working Cloudflare Worker template (Tier 3.2 source) |
+| `cloudflare-template/` | ⏳ Agent 4's template directory |
+
+---
+
+## Open PRs to upstream
+
+We should file a PR against `Cyberistic/Prisma-Effect-Schema-Generator` adding:
+
+1. `idColumn` flag (default `null`, autodetects from `@id`/`@@id`)
+2. `softDeleteColumn` flag (default `null`, autodetects `deletedAt` of `DateTime?`)
+3. `emitStandardSchema: boolean` flag — wraps every generated schema with `Schema.standardSchemaV1(...)` so downstream `createCollection({ schema })` works without a cast.
+4. Emits a `tables: Record<string, TableDef>` map keyed by model name so consumers can iterate.
+
+These are all schema-introspection changes (no LiveStore coupling). Alchemy v2's stdlib calls them out as the missing features in §"Open questions" of todo.md.
 
 ---
 
