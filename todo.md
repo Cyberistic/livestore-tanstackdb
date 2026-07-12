@@ -1,0 +1,129 @@
+# Prisma → LiveStore → TanStack DB — drop-in integration roadmap
+
+> Source of truth for *all* work on this stack. Mirrors the dream-list
+> in `~/Documents/alkitab-alhakeem/dream-list.md` and tracks what we've
+> implemented + what's open. Lives at the repo root so other agents
+> find it.
+
+## Status legend
+
+- ✅ done
+- 🚧 in progress (this branch)
+- ⏳ pending
+- 🟢 ready for parallel work
+- 🚫 blocked
+
+## Packages
+
+- **prisma-effect-schema-generator** (npm, `Cyberistic/Prisma-Effect-Schema-Generator`)
+  — emits Effect `Schema.Struct(...)` per Prisma model. **Provides** the
+  Effect Schema. **Missing** for our integration: `id` introspection,
+  soft-delete detection, `Schema.standardSchemaV1(...)` wrap. Those three
+  are upstream candidates (not LiveStore-specific).
+- **`@cyberistic/livestore-prisma`** (this repo, to be published)
+  — uses the upstream generator, adds the LiveStore + TanStack DB glue.
+  Tier 0.1, 0.2, 0.6, 2.1, 3.x live here.
+- **alchemy.run.ts** in this repo is the working template for Tier 3.2.
+
+## Top 3 priority (per the dream-list)
+
+Top 3 the user picked:
+1. **0.1 + 0.2** — `createLiveStoreDb(schema)` + `useTable(name)` hook
+   eliminates ~850 lines of glue per app.
+2. **0.6** — auto-derive `commitInsert/Update/Delete` from
+   `{ rpc: { teacher: { createLesson: { event: "lessonUpserted" } } } }`
+   config. Removes the second-biggest source of boilerplate.
+3. **2.1** — lazy db proxy so `import { foo }` calls keep working
+   post-migration. Single thing that made the Electric→LiveStore port
+   mechanical instead of painful.
+
+---
+
+## Tier 0 — day 1, no glue code
+
+| # | Feature | Status | Notes |
+|---|---------|--------|-------|
+| 0.1 | `createLiveStoreDb(schema)` factory — emits tables + events + materializers + makeSchema | 🚧 | Started `src/integration/createLiveStoreDb.ts`. Still need to verify the schema-introspection (`Schema.ast.propertySignatures`) works at runtime against the generator output. |
+| 0.2 | `useTable(name)` hook — auto-creates `useLiveQuery` source per model | ⏳ | Depends on factory output. ~17×30=~510 lines removed per app. |
+| 0.3 | `useTable(name).insert/update/delete` that round-trips through LiveStore AND oRPC | ⏳ | Needs 0.6 plumbing + an oRPC integration helper. |
+| 0.4 | Prisma row type IS LiveStore row type IS TanStack DB row type | 🚧 | Known issue: Schema.Any → Schema.AnyNoContext variance. Factory currently casts through `as any`. Long-term: upstream `Schema.standardSchemaV1` wrap would remove the cast. |
+| 0.5 | `useTable(name, { where: { ... } })` filtered collections | ⏳ | Should "just work" once 0.2 lands because TanStack DB's `where()` is the underlying mechanism. |
+
+## Tier 1 — quality of life that should "just work"
+
+| # | Feature | Status | Notes |
+|---|---------|--------|-------|
+| 1.1 | Auto-derive `getKey` from Prisma `@id` / `@@id` | ⏳ | We hardcode `getKey = (row) => row.id` everywhere today. Detected by walking `Schema.ast.propertySignatures` looking for the `isPrimaryKey` marker. If upstream Schema.standardSchemaV1 is present, look up via the property's `meta._id`. |
+| 1.2 | Auto-coerce soft-delete (`deletedAt: null` → live row) | ⏳ | Default predicate: row.`deletedAt` is null/undefined. Auto-detect by looking for a field named `deletedAt` of type `Schema.NullOr(Schema.Date)`. |
+| 1.3 | `useTable(name, { where })` server-side filter | ⏳ | Combines 0.2 + 1.5 below. |
+| 1.4 | Bulk-import via `useTables({ teacherProfiles: { where }, lessons: { sort } })` | ⏳ | Returns a `Map<name, collection>`. Memoized once. |
+| 1.5 | `useTable(name).preload()` for TanStack Router loaders | ⏳ | Needs to not require `<StoreRegistryProvider>` in the loader. Solve by keeping a module-level store ref + a `getOrCreateStore()` that works outside React. |
+| 1.6 | oRPC ↔ LiveStore write-back is generated, not handwritten | ⏳ | (Tied to Top 3 #2.) |
+| 1.7 | Bulk optimistic actions (`insert N rows` → single `v1.XBulkUpserted`) | ⏳ | Build on top of 0.3. |
+
+## Tier 2 — quality of life that should be free
+
+| # | Feature | Status | Notes |
+|---|---------|--------|-------|
+| 2.1 | Lazy db proxy: `import { teacherProfiles }` keeps working post-migration | ⏳ | Top 3 #3. Use a Proxy on `db` that resolves `db.teacherProfiles` to the right `useTeacherProfilesCollection()`-style result. |
+| 2.2 | Auto-injection of hook calls via TS transformer | 🚫 | Out of scope; would need a custom AST transform. Use 2.1 instead. |
+| 2.3 | Emit `Schema.standardSchemaV1(...)` in the generator | ⏳ | Depends on upstream `prisma-effect-schema-generator` shipping a flag. Open a PR against `Cyberistic/Prisma-Effect-Schema-Generator`. Without it, call sites have to wrap with `Schema.standardSchemaV1(...)`. |
+| 2.4 | `useLiveQuery` with `select` projection returning RefProxy | ⏳ | TanStack DB supports it; need to make sure the Effect schema flows through `q.from({ x: useTable("X") }).select(...)` correctly. |
+| 2.5 | Re-export `useLiveQuery` etc. from the integration | ⏳ | Trivial once 0.2 lands. |
+| 2.6 | Codemod `createTableMigration(from: "electric", ...)` | 🚫 | Not building. |
+| 2.7 | Combined LiveStore + TanStack DB Devtools | ⏳ | LiveStore has `_livestore` panel; TanStack DB has its own. Should compose. |
+| 2.8 | Hot-reload-safe: editing `schema.prisma` regenerates Effect + LiveStore + TanStack types in one go | ⏳ | `bun prisma generate` already does Effect. LiveStore tables + TanStack collections need a co-compiler step. |
+
+## Tier 3 — "would be really nice"
+
+| # | Feature | Status | Notes |
+|---|---------|--------|-------|
+| 3.1 | Single `<LiveStoreProvider schema={...} oRPC={...}>` | ⏳ | Wraps `StoreRegistryProvider` + provider for `useAppStore` + per-table collection provider. |
+| 3.2 | `alchemy.run.ts` Cloudflare Worker template emitted alongside the schema | ⏳ | We already have a working template in `alchemy.run.ts` here. Extract into a `cloudflare-template/` directory. |
+| 3.3 | `prisma db push` ↔ wrangler D1 migrations round-trip | ⏳ | Currently unhooked. Could be a `bun prisma migrate diff` + `wrangler d1 migrations apply` script. |
+| 3.4 | Per-row access control on LiveStore side | 🚫 | Out of scope; auth lives in the oRPC layer. |
+| 3.5 | Schema diff tool that emits `v1.<Table>Migrated` events for column adds | 🚫 | Out of scope; will be in 4.x async layer. |
+| 3.6 | `useCrud(name)` hook | ⏳ | Returns `[collection, { create, update, remove }]`. |
+
+## Tier 4 — "the dream"
+
+| # | Feature | Status | Notes |
+|---|---------|--------|-------|
+| 4.1 | `bun live:gen` reads schema, regenerates everything | ⏳ | Top 3 culmination. |
+| 4.2 | Full SSR with `<HydrationBoundary>`-style events injection | 🚫 | Out of scope. |
+| 4.3 | Versioned schema migrations (`v2.X` events co-existing with `v1.X`) | 🚫 | Out of scope. |
+| 4.4 | Cross-collection reactive joins | ⏳ | TanStack DB supports this; need the type alignment (0.4). |
+
+---
+
+## Open questions / decisions
+
+1. **Tier 0.4 type alignment** — `Schema.Any` vs `Schema.AnyNoContext` mismatch
+   breaks `createCollection({ schema })` directly. Three paths:
+   - (a) Upstream generator wraps with `Schema.standardSchemaV1(...)` (Tier 2.3)
+   - (b) Factory casts (`as any`) at the boundary; runtime is fine
+   - (c) Middleware inside the integration that coerces `Context = never`
+
+   Currently doing (b). Plan: ship (a) upstream once we have a use case
+   outside this repo.
+
+2. **Generator options to ask upstream about** — propose the following
+   options on `prisma-effect-schema-generator`:
+   - `idColumn` — explicit declaration so we don't have to guess
+   - `softDeleteColumn` (e.g. `"deletedAt"`) — explicit declaration
+   - `emitStandardSchema` — boolean, default `false` in v1, opt-in
+   - `relationColumns` — currently skipped; consider emitting
+     `Schema.Struct` per relation for downstream composability
+
+---
+
+## Files in this repo
+
+| Path | Status |
+|------|--------|
+| `src/integration/createLiveStoreDb.ts` | 🚧 Factory — drafts the schema/events/materializers from generator output |
+| `src/integration/useTable.ts` | ⏳ TanStack DB glue |
+| `src/integration/LiveStoreProvider.tsx` | ⏳ |
+| `src/integration/db.ts` | ⏳ The lazy db proxy (Tier 2.1) |
+| `src/livestore/schema.ts` | existing 89-line hand-rolled — to be replaced by the factory |
+| `alchemy.run.ts` | working Cloudflare Worker template (Tier 3.2 source) |
