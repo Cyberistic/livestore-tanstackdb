@@ -222,15 +222,7 @@ export const createLiveStoreDb = <T extends GeneratedSchemas>(
         schema: docSchema,
         ...(default_ ? { default: default_ } : {}),
       }
-      // `State.SQLite.clientDocument`'s input type insists on a
-      // `Schema.Schema<TType, TEncoded>` (precise encoded) rather than
-      // `Schema.Schema.Any`. The runtime value is a valid schema
-      // instance — only the type-level variance is the problem. The
-      // upstream `prisma-effect-schema-generator` PR will wrap every
-      // emitted schema with `Schema.standardSchemaV1(...)` (Tier 2.3),
-      // which both narrows `Context` to `never` AND fixes this
-      // variance so the cast goes away.
-      tables[name] = State.SQLite.clientDocument(args as never)
+      tables[name] = State.SQLite.clientDocument(args as Parameters<typeof State.SQLite.clientDocument>[0])
       events[`${name}Set`] = tables[name].set
     }
   }

@@ -32,6 +32,11 @@ generator effect_client {
   tables            = "true"
   exportModelNames  = "true"
   exportModelNameType = "true"
+  // Wrap every schema in Schema.standardSchemaV1 so it satisfies
+  // State.SQLite.clientDocument's Schema<T, _, never> slot without an
+  // `as never` cast. Also makes the schemas usable as Standard Schema
+  // v1 (TanStack DB accepts them directly).
+  standardSchemaV1  = "true"
 }
 
 model Todo {
