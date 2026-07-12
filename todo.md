@@ -65,7 +65,7 @@ Top 3 the user picked:
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 2.1 | Lazy db proxy: `import { teacherProfiles }` keeps working post-migration | ⏳ | Top 3 #3. Use a Proxy on `db` that resolves `db.teacherProfiles` to the right `useTeacherProfilesCollection()`-style result. **Pilot use case:** `alkitab-alhakeem` has 60+ files importing top-level collection constants from `@/lib/db-client`; the proxy lets those imports resolve to live hooks inside React and to plain collections in loaders, eliminating `scripts/refactor-db-client-hooks.ts` entirely. |
+| 2.1 | Lazy db proxy: `import { teacherProfiles }` keeps working post-migration | ✅ | Top 3 #3. **`createLazyDb(tables, options)` in `src/integration/lazyDb.ts`**, **`useDb()` in `src/integration/useDb.tsx`**, re-exported from `src/integration/index.ts`. The proxy resolves `db.<tableKey>` to a TanStack DB `Collection` (via `useTable`) when accessed inside any React render / event handler / effect (detected via `React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED.ReactCurrentDispatcher.current`), and to a Promise-based `LoaderProxy` (`preload()` / `findAll()` / `findOne()` / `insert()` / `update()` / `delete()`) when accessed outside React (TanStack Router loaders, Cloudflare Worker handlers, scripts). Server-only tables (LiveStore's `events` audit log, configured via `serverOnly: ['events']`) throw on access with a clear remediation hint. Model names are inferred from `events[*].name` so the consumer's `db.ts` stays at ~10 lines instead of 186. Pilot use case: `alkitab-alhakeem` can rewrite `import { useTeacherProfilesCollection } from "@/lib/db-client"` to `import { teacherProfiles } from "@/cyberistic/livestore-prisma/db"`, eliminating `scripts/refactor-db-client-hooks.ts` entirely. |
 | 2.2 | Auto-injection of hook calls via TS transformer | 🚫 | Out of scope; would need a custom AST transform. Use 2.1 instead. |
 | 2.3 | Emit `Schema.standardSchemaV1(...)` in the generator | ⏳ | Depends on upstream `prisma-effect-schema-generator` shipping a flag. Open a PR against `Cyberistic/Prisma-Effect-Schema-Generator`. Without it, call sites have to wrap with `Schema.standardSchemaV1(...)`. |
 | 2.4 | `useLiveQuery` with `select` projection returning RefProxy | ⏳ | TanStack DB supports it; need to make sure the Effect schema flows through `q.from({ x: useTable("X") }).select(...)` correctly. |
@@ -206,6 +206,7 @@ These are all schema-introspection changes (no LiveStore coupling). Alchemy v2's
 | `src/integration/createLiveStoreDb.ts` | 🚧 Factory — drafts the schema/events/materializers from generator output |
 | `src/integration/useTable.ts` | ⏳ TanStack DB glue |
 | `src/integration/LiveStoreProvider.tsx` | ⏳ |
-| `src/integration/db.ts` | ⏳ The lazy db proxy (Tier 2.1) |
+| `src/integration/lazyDb.ts` | ✅ Tier 2.1 — `createLazyDb(tables, options)` proxy + `LoaderProxy` shape |
+| `src/integration/useDb.tsx` | ✅ Tier 2.1 — `useDb(name)` hook (thin wrapper over `useTable`) |
 | `src/livestore/schema.ts` | existing 89-line hand-rolled — to be replaced by the factory |
 | `alchemy.run.ts` | working Cloudflare Worker template (Tier 3.2 source) |

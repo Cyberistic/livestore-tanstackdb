@@ -12,6 +12,23 @@ export {
   type RowOf,
 } from './useTable.ts'
 
+export {
+  createLazyDb,
+  type LazyDbOptions,
+  type LoaderProxy,
+  type OnSync,
+  type SyncOp,
+} from './lazyDb.ts'
+
+export { useDb } from './useDb.tsx'
+
+export {
+  LiveStoreProvider,
+  useLiveStoreConfig,
+  type LiveStoreConfig,
+  type LiveStoreProviderProps,
+} from './LiveStoreProvider.tsx'
+
 export { liveStoreCollectionOptions } from '../db/liveStoreCollection.ts'
 export type {
   LiveStoreRow,
