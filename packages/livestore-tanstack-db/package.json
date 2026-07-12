@@ -1,0 +1,36 @@
+{
+  "name": "@cyberistic/livestore-tanstack-db",
+  "version": "0.1.0",
+  "description": "LiveStore + TanStack DB integration. Pattern B adapter, useTable hook, lazy db proxy, oRPC write-back, and React provider. Independent of Prisma — works with any source of LiveStore schemas.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@livestore/livestore": "^0.4.0",
+    "@tanstack/db": "^0.6.0",
+    "effect": "^3.0.0 || ^4.0.0",
+    "react": "^19.0.0"
+  },
+  "dependencies": {
+    "@standard-schema/spec": "^1.1.0",
+    "@tanstack/react-db": "^0.1.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.0.0",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "effect": "^3.21.0",
+    "typescript": "^5.4.0"
+  }
+}

@@ -23,6 +23,13 @@ export interface LiveStoreProviderProps {
 export interface LiveStoreConfig {
   schema: LiveStoreSchema
   oRPC: unknown
+  /**
+   * Tables that should NOT get client-side write APIs. Read by
+   * `lazyDb` and `useTable` to refuse commit handlers. Typically
+   * sourced from the per-table flags in
+   * `prisma/livestore.annotations.json`.
+   */
+  serverOnlyTables?: ReadonlyArray<string>
 }
 
 const LiveStoreConfigContext = createContext<LiveStoreConfig | null>(null)

@@ -1,12 +1,19 @@
 // Prisma schema: the single source of truth for the LiveStore + TanStack DB
-// todo model. Two generators consume it:
+// todo model. Three generators consume it:
 //
 //   1. `effect_client` — the published `prisma-effect-schema-generator`
 //      npm package. Emits `@livestore/utils/effect` `Schema.*` values
 //      plus the introspection maps the integration factory consumes
 //      (`PRIMARY_KEY_COLUMNS`, `SOFT_DELETE_COLUMNS`, `TABLES`).
 //
-//   2. `client` — the standard Prisma Client, useful for ad-hoc D1 reads.
+//   2. `livestore` — the in-repo `@cyberistic/livestore-prisma` package's
+//      generator. Reads a sidecar `livestore.annotations.json` for
+//      per-table flags (serverOnly, custom event names) and emits
+//      LiveStore-specific code: tables, events, materializers,
+//      makeSchema. The annotations file is the per-table flag surface
+//      — no regex guessing.
+//
+//   3. `client` — the standard Prisma Client, useful for ad-hoc D1 reads.
 //
 // `provider = "sqlite"` is what Prisma uses for local type checking +
 // migration generation. The actual D1 database is provisioned by
@@ -23,20 +30,27 @@ generator client {
 }
 
 generator effect_client {
-  provider          = "prisma-effect-schema-generator"
-  output            = "./generated/client-schemas/index.ts"
-  effectImport      = "@livestore/utils/effect"
+  provider            = "prisma-effect-schema-generator"
+  output              = "./generated/client-schemas/index.ts"
+  effectImport        = "@livestore/utils/effect"
   // Introspection maps the integration factory consumes:
-  idColumn          = "true"
-  softDeleteColumn  = "true"
-  tables            = "true"
-  exportModelNames  = "true"
+  idColumn            = "true"
+  softDeleteColumn    = "true"
+  tables              = "true"
+  exportModelNames    = "true"
   exportModelNameType = "true"
   // Wrap every schema in Schema.standardSchemaV1 so it satisfies
   // State.SQLite.clientDocument's Schema<T, _, never> slot without an
   // `as never` cast. Also makes the schemas usable as Standard Schema
   // v1 (TanStack DB accepts them directly).
-  standardSchemaV1  = "true"
+  standardSchemaV1    = "true"
+}
+
+generator livestore {
+  provider     = "node ./node_modules/@cyberistic/livestore-prisma/dist/generator.cjs"
+  output       = "./generated/livestore/index.ts"
+  // Path to the per-table annotations file. Lives next to schema.prisma.
+  annotations = "./livestore.annotations.json"
 }
 
 model Todo {
@@ -53,6 +67,11 @@ model Todo {
 // is *not* the source of truth — LiveStore's own SQLite event log is —
 // but it lets you replay history into other systems, run analytics, or
 // rebuild a region from a backup.
+//
+// serverOnly: see `prisma/livestore.annotations.json`. The
+// `prisma-livestore-generator` reads that flag and emits the table
+// without commit handlers, so consumers can't accidentally .insert
+// or .update on it from a TanStack DB collection.
 model Event {
   id        Int      @id @default(autoincrement())
   storeId   String   @map("store_id")

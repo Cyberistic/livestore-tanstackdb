@@ -1,14 +1,13 @@
 import { Events, makeSchema, Schema, SessionIdSymbol, State } from '@livestore/livestore'
 
-import {
-  PRIMARY_KEY_COLUMNS,
-  SOFT_DELETE_COLUMNS,
-  TABLES,
-  type ColumnDescriptor,
-  type TableDescriptor,
-  type ModelName,
-} from '../../prisma/generated/client-schemas/index.ts'
 import { toStandardSchemaV1 } from './standardSchema.ts'
+import type {
+  ColumnDescriptor,
+  PrimaryKeyColumns,
+  SoftDeleteColumns,
+  TableDescriptor,
+  Tables,
+} from './types.ts'
 
 type GeneratedSchemas = Record<string, Schema.Schema.Any>
 
@@ -41,23 +40,45 @@ export type ClientDocuments = Record<
 >
 
 export interface LiveStoreDbConfig<T extends GeneratedSchemas> {
+  /**
+   * Per-model Effect Schemas. The consumer passes these in from whatever
+   * source they prefer — typically the upstream
+   * `prisma-effect-schema-generator` output. The package is
+   * schema-source-agnostic.
+   */
   models: T
+
+  /**
+   * Per-model introspection maps emitted by the upstream
+   * `prisma-effect-schema-generator` (idColumn / softDeleteColumn / tables
+   * options). The factory uses them to:
+   *   - auto-derive `getKey` from `primaryKeyColumns[model]`
+   *   - auto-build the soft-delete predicate from
+   *     `softDeleteColumns[model]` (when present)
+   *   - auto-derive `booleanColumns` from `tables[model].columns` for
+   *     per-field toggle events (`v1.<Model><Field>Completed` /
+   *     `...Uncompleted`)
+   *
+   * Optional — if omitted, the factory falls back to heuristics that work
+   * for the simple case (`getKey = row => row.id`, no soft-delete).
+   */
+  primaryKeyColumns?: PrimaryKeyColumns
+  softDeleteColumns?: SoftDeleteColumns
+  tables?: Tables
+
   clientDocuments?: Record<string, Schema.Schema.Any | ClientDocumentInput>
   events?: Partial<Record<keyof T & string, DefaultEventConfig>>
   version?: string
 
   /**
    * Tables that should NOT get client-side write APIs even though
-   * `TABLES[model].includedInSync` is `true`. Audit logs, event
+   * `tables[model].includedInSync` is `true`. Audit logs, event
    * mirrors, etc. — the DO/server writes to them, the client only reads.
    *
-   * Pairs with `TABLES[m].includedInSync` from the generator:
-   * - If `includedInSync: false` (upstream autodetected): server-only
-   *   regardless of this list.
-   * - If `includedInSync: true` and name is in this list: server-only
-   *   (consumer override; e.g. `Event` table that the upstream hasn't
-   *   flagged yet because the `idColumn` autodetect PR hasn't landed).
-   * - Otherwise: client-writable.
+   * The recommended source for this list is the per-table flag in
+   * `prisma/livestore.annotations.json` (read by the in-repo
+   * `prisma-livestore-generator` and folded into the generator output).
+   * For ad-hoc overrides, this option also accepts a manual list.
    *
    * The downstream `useTable(name)` / `createLazyDb({ serverOnly })`
    * both consult this list to refuse commit handlers.
@@ -78,20 +99,23 @@ export interface LiveStoreDb<T extends GeneratedSchemas> {
 const BOOLEAN_SUFFIX_BLOCKLIST = /(At|Date|Time|Id)$/
 
 const booleanColumnsFor = (
-  modelName: keyof typeof TABLES & string,
+  modelName: string,
+  columns: ReadonlyArray<ColumnDescriptor> | undefined,
   override?: string[],
 ): string[] => {
   if (override) return override
-  return TABLES[modelName].columns
+  if (!columns) return []
+  return columns
     .filter((c) => c.type === 'boolean' && !BOOLEAN_SUFFIX_BLOCKLIST.test(c.name))
     .map((c) => c.name)
 }
 
 const defaultValuesFor = (
-  modelName: keyof typeof TABLES & string,
+  columns: ReadonlyArray<ColumnDescriptor> | undefined,
 ): Record<string, unknown> => {
   const out: Record<string, unknown> = {}
-  for (const c of TABLES[modelName].columns) {
+  if (!columns) return out
+  for (const c of columns) {
     if (c.type === 'boolean') {
       out[c.name] = false
       continue
@@ -102,12 +126,12 @@ const defaultValuesFor = (
 }
 
 const insertableSchemaFor = (
-  modelName: keyof typeof TABLES & string,
+  columns: ReadonlyArray<ColumnDescriptor> | undefined,
   modelSchema: Schema.Schema.Any,
 ): Record<string, Schema.Schema.Any> => {
   const fields = (modelSchema as unknown as { fields: Record<string, Schema.Schema.Any> }).fields
-  if (!fields) return {}
-  const insertable = TABLES[modelName].columns.filter(
+  if (!fields || !columns) return {}
+  const insertable = columns.filter(
     (c) =>
       c.required &&
       c.type !== 'boolean' &&
@@ -142,34 +166,42 @@ export const createLiveStoreDb = <T extends GeneratedSchemas>(
   const readOnly: Record<string, boolean> = {}
 
   for (const [modelName, modelSchema] of Object.entries(config.models)) {
-    const mName = modelName as keyof typeof TABLES & string
-    const tableMeta = TABLES[mName]
+    const mName = modelName as string
+    const tableMeta = config.tables?.[mName]
+    const columns = tableMeta?.columns
     const modelPrefix = camelize(modelName)
     const cfg = config.events?.[mName] ?? {}
 
-    const booleanCols = booleanColumnsFor(mName, cfg.booleanColumns)
+    const booleanCols = booleanColumnsFor(mName, columns, cfg.booleanColumns)
     const softDeleteCol =
       cfg.softDeleteColumn !== undefined
         ? cfg.softDeleteColumn
-        : (SOFT_DELETE_COLUMNS as Record<string, string | undefined>)[mName]
+        : config.softDeleteColumns?.[mName]
+
+    const tableName = tableMeta?.name ?? mName.toLowerCase()
 
     tables[modelName] = State.SQLite.table({
-      name: tableMeta.name,
-      schema: toStandardSchemaV1(modelSchema),
+      name: tableName,
+      // The upstream `prisma-effect-schema-generator` output is already
+      // wrapped in `Schema.standardSchemaV1(...)` when that flag is on;
+      // the variance check on `State.SQLite.table({ schema })` still
+      // disagrees at the type level because of how the intersection is
+      // exposed. Cast through any at this single boundary.
+      schema: toStandardSchemaV1(modelSchema) as never as never as never,
     })
 
-    if (!tableMeta.includedInSync) {
+    if (tableMeta && !tableMeta.includedInSync) {
       readOnly[modelName] = true
     }
 
     if (cfg.includeCreated !== false) {
       const createdName = `${version}.${modelName}Created`
-      const createdSchema = Schema.Struct(insertableSchemaFor(mName, modelSchema))
+      const createdSchema = Schema.Struct(insertableSchemaFor(columns, modelSchema))
       events[`${modelPrefix}Created`] = Events.synced({
         name: createdName,
-        schema: toStandardSchemaV1(createdSchema),
+        schema: toStandardSchemaV1(createdSchema) as never,
       })
-      const defaults = defaultValuesFor(mName)
+      const defaults = defaultValuesFor(columns)
       const target = tables[modelName]
       materializers[createdName] = (args: Record<string, unknown>) =>
         target.insert({ ...defaults, ...args })
@@ -240,5 +272,15 @@ export const createLiveStoreDb = <T extends GeneratedSchemas>(
 
 export { getKeyFromSchema } from './getKeyFromSchema.ts'
 export { softDeleteLivePredicate } from './softDeleteLivePredicate.ts'
-export { PRIMARY_KEY_COLUMNS, SOFT_DELETE_COLUMNS, TABLES } from '../../prisma/generated/client-schemas/index.ts'
-export type { ModelName, ColumnDescriptor, TableDescriptor } from '../../prisma/generated/client-schemas/index.ts'
+
+// Re-export the structural types consumers see, plus a ModelName type
+// the consumer can use directly without depending on the upstream
+// `prisma-effect-schema-generator` package.
+export type {
+  ColumnDescriptor,
+  TableDescriptor,
+  PrimaryKeyColumns,
+  SoftDeleteColumns,
+  Tables,
+} from './types.ts'
+export type ModelName = string

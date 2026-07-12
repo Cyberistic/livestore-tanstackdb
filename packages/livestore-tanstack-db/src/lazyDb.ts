@@ -65,8 +65,7 @@ import {
   createCollection,
   liveStoreCollectionOptions,
   type LiveStoreRow,
-} from '../db/liveStoreCollection.ts'
-import { TABLES } from '../../prisma/generated/client-schemas/index.ts'
+} from './liveStoreCollection.ts'
 import { useLiveStoreConfig } from './LiveStoreProvider.tsx'
 import { useTable } from './useTable.ts'
 
@@ -82,9 +81,8 @@ import { useTable } from './useTable.ts'
  * to get the LiveStore `Store` instance the adapter expects.
  */
 const loadStore = async () => {
-  const mod = await import('../livestore/store.ts')
-  const ctx = await mod.getOrCreateAppStore()
-  return ctx.store
+  const mod = await import('./getOrCreateStore.ts')
+  return (mod as any).getOrCreateStore() as ReturnType<typeof import('./getOrCreateStore.ts').getOrCreateStore>
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -376,9 +374,16 @@ export const createLazyDb = (
   options: LazyDbOptions = {},
 ): Readonly<Record<string, unknown>> => {
   const serverOnly = new Set<string>(options.serverOnly ?? [])
-  // Fold in any upstream-detected server-only tables: TABLES[m].includedInSync === false.
-  for (const [name, meta] of Object.entries(TABLES) as Array<[string, { includedInSync: boolean }]>) {
-    if (meta.includedInSync === false) serverOnly.add(name)
+  // Fold in any server-only tables the consumer passed via the
+  // LiveStoreProvider config (typically sourced from
+  // `prisma/livestore.annotations.json` by the consumer's setup).
+  const liveStoreConfig = useLiveStoreConfig() as
+    | { serverOnlyTables?: ReadonlyArray<string> }
+    | null
+  if (liveStoreConfig?.serverOnlyTables) {
+    for (const name of liveStoreConfig.serverOnlyTables) {
+      serverOnly.add(name)
+    }
   }
   const inferredModelNames = options.events
     ? inferModelNamesFromEvents(tables, options.events)
