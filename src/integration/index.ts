@@ -19,3 +19,16 @@ export type {
   IsRowLive,
   CoerceRow,
 } from '../db/liveStoreCollection.ts'
+
+export {
+  classifyProcedure,
+  createMutations,
+  type CreateMutationsConfig,
+  type MutationCallbacks,
+  type MutationKind,
+  type RpcClient,
+  type RpcConfig,
+  type RpcProcedure,
+  type RpcProcedureConfig,
+  type RpcProcedureSpec,
+} from './mutations.ts'

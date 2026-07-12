@@ -7,6 +7,9 @@ import { useMemo } from 'react'
 import { liveStoreCollectionOptions, type LiveStoreRow } from '../db/liveStoreCollection.ts'
 import { tables, events, schema } from '../livestore/schema.ts'
 import { getOrCreateAppStore, useAppStore } from '../livestore/store.ts'
+import type { MutationCallbacks, RpcClient, RpcConfig } from './mutations.ts'
+import { createMutations } from './mutations.ts'
+import { useLiveStoreConfig } from './LiveStoreProvider.tsx'
 
 // ─────────────────────────────────────────────────────────────────────
 // Public types
@@ -46,6 +49,34 @@ export interface UseTableOptions {
    * collections (independent subscriptions).
    */
   label?: string
+
+  /**
+   * Tier 0.6 declarative mutations. Each entry tells `createMutations`
+   * which RPC procedure to fire (and which LiveStore event to commit)
+   * on `insert` / `update` / `delete`. When `rpcClient` is missing
+   * (e.g. this demo has no oRPC wired), the RPC calls become no-ops
+   * and only the LiveStore events fire.
+   *
+   * @example
+   * ```ts
+   * useTable("TeacherProfile", {
+   *   rpc: {
+   *     teacher: {
+   *       updateOwnProfile: { map: row => row },
+   *     },
+   *   },
+   *   rpcClient: orpc,
+   * })
+   * ```
+   */
+  rpc?: RpcConfig
+
+  /**
+   * RPC client to call when the mutations config names procedures.
+   * Falls back to the `oRPC` value on `<LiveStoreProvider>` (via
+   * {@link useLiveStoreConfig}) when omitted.
+   */
+  rpcClient?: RpcClient
 }
 
 export interface UseTableResult<TName extends TableName> {
@@ -126,6 +157,47 @@ const makeCommitUpdate = (store: Store<any>, name: TableName) =>
     }
   }
 
+/**
+ * Build the three commit callbacks for a `useTable(...)` call.
+ *
+ * When `options.rpc` is set we delegate to `createMutations` (Tier 0.6
+ * declarative path). Otherwise we fall back to the ad-hoc auto-toggle
+ * behaviour that this hook has shipped since its first cut — so every
+ * pre-0.6 call site keeps working without edits.
+ */
+const buildCommitCallbacks = (
+  store: Store<any>,
+  name: TableName,
+  options: UseTableOptions,
+  contextRpcClient: unknown,
+): Pick<
+  Partial<Parameters<typeof liveStoreCollectionOptions>[0]>,
+  'commitInsert' | 'commitUpdate' | 'commitDelete'
+> => {
+  if (!options.rpc && options.rpcClient === undefined) {
+    return {
+      commitInsert: makeCommitInsert(store, name),
+      commitUpdate: makeCommitUpdate(store, name),
+      commitDelete: makeCommitDelete(store, name),
+    }
+  }
+
+  const mutations: MutationCallbacks = createMutations({
+    store,
+    modelName: name,
+    events: events as Record<string, (...args: any[]) => unknown>,
+    rpcClient: (options.rpcClient as RpcClient | undefined) ??
+      (contextRpcClient as RpcClient | undefined),
+    rpcConfig: options.rpc,
+  })
+
+  return {
+    commitInsert: mutations.commitInsert as never,
+    commitUpdate: mutations.commitUpdate as never,
+    commitDelete: mutations.commitDelete as never,
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────
 // useTable
 // ─────────────────────────────────────────────────────────────────────
@@ -164,6 +236,13 @@ export function useTable<TName extends TableName>(
   // re-suspending.
   const store = useAppStore()
 
+  // Tier 0.6 hookup: pull the optional oRPC client off the React tree
+  // via <LiveStoreProvider>. Falls back to `null` when no provider is
+  // mounted (the common case in this demo) — `createMutations`
+  // tolerates a missing client and just no-ops the RPC calls.
+  const liveStoreConfig = useLiveStoreConfig()
+  const contextRpcClient = liveStoreConfig?.oRPC
+
   const label = options.label ?? 'all'
   const where = options.where ?? DEFAULT_WHERE
   const whereKey = JSON.stringify(where)
@@ -172,15 +251,15 @@ export function useTable<TName extends TableName>(
     const table = tables[name] as (typeof tables)[TName]
     const query = buildQuery(name, { where, label })
 
+    const callbacks = buildCommitCallbacks(store, name, options, contextRpcClient)
+
     const collection = createCollection<RowOf<TName>, string>(
       liveStoreCollectionOptions<RowOf<TName>>({
         id: `${lcFirst(name)}-${label}-${whereKey}`,
         store,
         query,
         getKey,
-        commitInsert: makeCommitInsert(store, name),
-        commitUpdate: makeCommitUpdate(store, name),
-        commitDelete: makeCommitDelete(store, name),
+        ...callbacks,
       }),
     )
 
