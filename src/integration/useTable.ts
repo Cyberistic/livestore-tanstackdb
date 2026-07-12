@@ -21,20 +21,29 @@ export type TableName = keyof typeof tables & string
 /**
  * Row type for a given table.
  *
- * The factory's `createLiveStoreDb` types `tables` loosely
- * (`ReturnType<typeof State.SQLite.table>`), which erases the schema
- * generic to `any`. That means `(typeof tables)[TName]['Type']`
- * collapses to `any` / `unknown` for a still-generic `TName` — not
- * useful for `Collection<RowOf<TName>, string>`.
+ * Tier 2.4 — `tables` is now typed precisely per-key by the factory
+ * (`{ [K in keyof T]: SyncedTableFor<T[K]> }` where `SyncedTableFor`
+ * preserves the schema's decoded `Type`). We derive `RowOf` straight
+ * off `(typeof tables)[TName]['Type']`, so:
  *
- * Until Tier 0.4 lands (effect-Schema → StandardSchemaV1 wrap, see
- * `todo.md` + `integration/standardSchema.ts`), we return a generic
- * `LiveStoreRow` and let per-model wrappers (e.g. `useTodoCollection`)
- * cast to the concrete row type. Concrete types ARE preserved when you
- * read `(typeof tables)['Todo']['Type']` with a specific (non-generic)
- * key — that's the escape hatch this hook leaves open.
+ *   - `useTable('Todo').collection` is `Collection<Todo, string>`,
+ *     not `Collection<LiveStoreRow, string>`.
+ *   - `q.from({ todo: todos }).select(({ todo }) => todo.text)`
+ *     type-checks end to end — the row shape flows through the
+ *     `useLiveQuery` projection.
+ *
+ * Client-document keys (`uiState`) and any other `Record<string, any>`
+ * key fall through to the `LiveStoreRow` fallback — their precise
+ * types aren't tracked by the factory's schema-introspection export.
  */
-export type RowOf<TName extends TableName> = LiveStoreRow
+export type RowOf<TName extends TableName> =
+  (typeof tables)[TName] extends { readonly Type: infer R }
+    ? [R] extends [never]
+      ? LiveStoreRow
+      : R extends object
+        ? R
+        : LiveStoreRow
+    : LiveStoreRow
 
 export interface UseTableOptions {
   /**
@@ -393,7 +402,7 @@ export const getCollection = <TName extends TableName>(
   const key = collectionCacheKey(name, label, whereKey)
 
   const cached = collectionCache.get(key)
-  if (cached) return cached as Promise<Collection<RowOf<TName>, string>>
+  if (cached) return cached as unknown as Promise<Collection<RowOf<TName>, string>>
 
   const promise = (async (): Promise<Collection<RowOf<TName>, string>> => {
     const { store } = await getOrCreateAppStore()
@@ -409,7 +418,7 @@ export const getCollection = <TName extends TableName>(
       }),
     )
   })()
-  collectionCache.set(key, promise)
+  collectionCache.set(key, promise as unknown as Promise<Collection<LiveStoreRow, string>>)
   return promise
 }
 
