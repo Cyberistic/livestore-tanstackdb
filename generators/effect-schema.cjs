@@ -24,7 +24,7 @@ generatorHandler({
     return {
       defaultOutput: './generated/client-schemas/index.ts',
       prettyName: 'Effect Schema Generator',
-      version: '0.1.0',
+      version: '0.2.0',
     }
   },
 
@@ -44,6 +44,8 @@ generatorHandler({
     )
 
     const models = options.dmmf.datamodel.models
+    const modelNames = models.map((m) => m.name)
+    const modelNamesJson = JSON.stringify(modelNames)
 
     for (const model of models) {
       lines.push(`export const ${model.name}Schema = Schema.Struct({`)
@@ -59,15 +61,160 @@ generatorHandler({
       'export type ModelName =',
       ...models.map((m) => `  | "${m.name}"`),
       '',
-      `export const ALL_MODEL_NAMES = ${JSON.stringify(
-        models.map((m) => m.name),
-      )} as const`,
+      `export const ALL_MODEL_NAMES = ${modelNamesJson} as const`,
+      '',
+    )
+
+    lines.push(
+      '// ─── Schema-introspection exports (idColumn / softDeleteColumn / tables flags) ───',
+      '//',
+      '// These three blocks are what the upstream PR is landing on',
+      '// `prisma-effect-schema-generator`. They let consumers (e.g.',
+      '// `@cyberistic/livestore-prisma`) walk the model set without having',
+      '// to introspect the Effect AST or hand-maintain `getKey`/soft-delete',
+      '// defaults.',
+      '',
+      `export type ColumnType = ${COLUMN_TYPE_UNION}`,
+      '',
+      `export type ColumnDef = {`,
+      `  readonly name: string`,
+      `  readonly type: ColumnType`,
+      `  readonly required: boolean`,
+      `  readonly list: boolean`,
+      `  readonly unique: boolean`,
+      `  readonly isEnum: boolean`,
+      `}`,
+      '',
+      `export type TableDef = {`,
+      `  readonly name: string`,
+      `  readonly primaryKey: string`,
+      `  readonly softDelete: string | null`,
+      `  readonly includedInSync: boolean`,
+      `  readonly columns: ReadonlyArray<ColumnDef>`,
+      `}`,
+      '',
+    )
+
+    // PRIMARY_KEY_COLUMNS
+    const pkEntries = models
+      .map((m) => `  ${m.name}: ${JSON.stringify(primaryKeyFor(m))}`)
+      .join(',\n')
+    lines.push(
+      `export const PRIMARY_KEY_COLUMNS = {`,
+      pkEntries,
+      `} as const satisfies Record<ModelName, string>`,
+      '',
+    )
+
+    // SOFT_DELETE_COLUMNS (Partial — Event model returns null and gets omitted… no, kept
+    // as null entries so consumers can do `m in SOFT_DELETE_COLUMNS` and treat null as "none").
+    // Use `Partial<Record<ModelName, string | null>>` so consumers get the right shape.
+    const sdEntries = models
+      .map((m) => `  ${m.name}: ${JSON.stringify(softDeleteFor(m))}`)
+      .join(',\n')
+    lines.push(
+      `export const SOFT_DELETE_COLUMNS = {`,
+      sdEntries,
+      `} as const satisfies Record<ModelName, string | null>`,
+      '',
+    )
+
+    // TABLES
+    const tableEntries = models.map((m) => {
+      const columns = m.fields
+        .filter((f) => f.kind === 'scalar' || f.kind === 'enum')
+        .map((f) => ({
+          name: f.name,
+          type: mapColumnType(f.type),
+          required: f.isRequired,
+          list: f.isList,
+          unique: f.isUnique,
+          isEnum: f.kind === 'enum',
+        }))
+      return (
+        `  ${m.name}: {\n` +
+        `    name: ${JSON.stringify(tableNameFor(m))},\n` +
+        `    primaryKey: ${JSON.stringify(primaryKeyFor(m))},\n` +
+        `    softDelete: ${JSON.stringify(softDeleteFor(m))},\n` +
+        `    includedInSync: ${includedInSyncFor(m)},\n` +
+        `    columns: ${JSON.stringify(columns, null, 2)
+          .split('\n')
+          .map((l, i) => (i === 0 ? l : '    ' + l))
+          .join('\n')},\n` +
+        `  }`
+      )
+    }).join(',\n')
+
+    lines.push(
+      `export const TABLES = {`,
+      tableEntries,
+      `} as const satisfies Record<ModelName, TableDef>`,
       '',
     )
 
     fs.writeFileSync(outputFile, lines.join('\n'))
   },
 })
+
+const COLUMN_TYPE_UNION =
+  `'string' | 'number' | 'boolean' | 'date' | 'json' | 'bytes'`
+
+const SOFT_DELETE_FIELD_RE =
+  /^(deleted|archived|removed)(At)?$|^isDeleted$/
+
+// Matches Event, EventLog, AuditLog, FooEvents, FooLog, … —
+// server-authoritative audit/event tables that should not be wired
+// to client-side commit handlers.
+const AUDIT_TABLE_RE = /^(event|audit|log|.*_?log|.*_?events?)$/i
+
+const mapColumnType = (prismaType) => {
+  switch (prismaType) {
+    case 'String':
+      return 'string'
+    case 'Int':
+    case 'BigInt':
+    case 'Float':
+    case 'Decimal':
+      return 'number'
+    case 'Boolean':
+      return 'boolean'
+    case 'DateTime':
+      return 'date'
+    case 'Json':
+      return 'json'
+    case 'Bytes':
+      return 'bytes'
+    default:
+      return 'string'
+  }
+}
+
+const primaryKeyFor = (model) => {
+  const idField = model.fields.find((f) => f.isId)
+  if (idField) return idField.name
+  if (model.primaryKey?.fields?.length) return model.primaryKey.fields[0]
+  if (model.uniqueFields?.length && model.uniqueFields[0]?.length) {
+    return model.uniqueFields[0][0]
+  }
+  return 'id'
+}
+
+const softDeleteFor = (model) => {
+  const matched = model.fields.find(
+    (f) =>
+      (f.kind === 'scalar' || f.kind === 'enum') &&
+      !f.isRequired &&
+      SOFT_DELETE_FIELD_RE.test(f.name),
+  )
+  return matched ? matched.name : null
+}
+
+const tableNameFor = (model) => model.dbName ?? camelToSnake(model.name)
+
+const includedInSyncFor = (model) => !AUDIT_TABLE_RE.test(model.name)
+
+const camelToSnake = (s) =>
+  s.replace(/[A-Z]/g, (m, i) => (i ? '_' : '') + m.toLowerCase())
 
 function prismaFieldToEffectSchema(field) {
   let base
