@@ -1,3 +1,8 @@
+// MUST be the first import — patches Schedule.bothLeft before any
+// LiveStore module (transitively via @livestore/utils/dist/effect/Schedule)
+// evaluates it at module load.
+import "livestore-tanstack-db/v4ScheduleShim";
+
 import { makeWorker } from "@livestore/adapter-web/worker";
 import { makeWsSync } from "@livestore/sync-cf/client";
 

@@ -29,7 +29,7 @@ export const getOrCreateStore = (): Promise<Store<any>> => {
     // defaults that the consumer can replace.
     const storeId = "app-root";
     const adapter = makePersistedAdapter({
-      storage: { type: "opfs" as const },
+      storage: { type: "opfs" },
       worker: undefined as never,
       sharedWorker: undefined as never,
     });

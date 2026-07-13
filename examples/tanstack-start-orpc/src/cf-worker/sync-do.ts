@@ -1,3 +1,8 @@
+// MUST be the first import — patches Schedule.bothLeft before any
+// LiveStore module (transitively via @livestore/utils/dist/effect/Schedule)
+// evaluates it at module load.
+import "livestore-tanstack-db/v4ScheduleShim";
+
 import type { CfTypes } from "@livestore/sync-cf/cf-worker";
 import * as SyncBackend from "@livestore/sync-cf/cf-worker";
 
@@ -24,7 +29,7 @@ const SyncBackendDOBase = SyncBackend.makeDurableObject({
     }
 
     const statement = db.prepare("INSERT INTO events (store_id, name, args) VALUES (?1, ?2, ?3)");
-    const rows = message.batch.map((event) =>
+    const rows = message.batch.map((event: { name: unknown; args: unknown }) =>
       statement.bind(context.storeId, String(event.name), JSON.stringify(event.args)),
     );
 

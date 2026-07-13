@@ -29,9 +29,8 @@ export type CoerceRow<TIn extends LiveStoreRow, TOut extends LiveStoreRow> = (ro
  * utility is direct access to the underlying `Store`.
  */
 // oxlint-disable-next-line no-unused-vars
-export interface LiveStoreCollectionUtils<
-  T extends LiveStoreRow = LiveStoreRow,
-> extends UtilsRecord {
+export interface LiveStoreCollectionUtils<T extends LiveStoreRow = LiveStoreRow>
+  extends UtilsRecord {
   /** Direct access to the underlying LiveStore `Store` instance. */
   getStore: () => Store<any>;
 }
