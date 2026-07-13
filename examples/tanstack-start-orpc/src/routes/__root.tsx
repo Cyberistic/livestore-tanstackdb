@@ -14,7 +14,6 @@ import { LiveStoreProvider } from "livestore-tanstack-db"
 import {
   LiveStoreDevtoolsBridge,
   liveStoreDevtoolsPlugin,
-  rpcConfig,
 } from 'livestore-tanstack-db/devtools'
 
 import { rpcPosts } from '../lib/orpc-client.ts'
@@ -100,13 +99,17 @@ function RootComponent() {
  * beyond the store. Just mount once.
  */
 function DevtoolsMount() {
-  const store = useAppStore()
-  return (
-    <>
-      <LiveStoreDevtoolsBridge store={store} />
-      <TanStackDevtools plugins={[liveStoreDevtoolsPlugin()]} />
-    </>
-  )
+  // DEVTOOLS BRIDGE TEMPORARILY DISABLED — was triggering the oRPC
+  // Proxy's `get` trap via property access. Re-enable once the bridge
+  // is fixed to avoid touching the procedure Proxies.
+  return null
+  // const store = useAppStore()
+  // return (
+  //   <>
+  //     <LiveStoreDevtoolsBridge store={store} />
+  //     <TanStackDevtools plugins={[liveStoreDevtoolsPlugin()]} />
+  //   </>
+  // )
 }
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {

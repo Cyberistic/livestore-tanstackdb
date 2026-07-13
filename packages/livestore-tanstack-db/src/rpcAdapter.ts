@@ -24,75 +24,52 @@ export interface CreateRpcAdapterOptions {
   namespaces?: ReadonlyArray<string>
 
   /**
-   * Skip validation (don't warn on bad entries). Use when you trust the
-   * client shape and want to skip the per-namespace check. Defaults to
-   * `false` (validate).
-   */
-  skipValidation?: boolean
-
-  /**
    * The router definition object (e.g. `os.router({ posts: {...} })`).
-   * When provided, the adapter enumerates namespaces from the router
-   * definition instead of `Object.entries(client)`. This is required
-   * when the client is an oRPC Proxy (which has no enumerable own keys).
+   * When provided, the adapter enumerates namespaces and procedures
+   * from the router instead of walking the client. Required when the
+   * client is an oRPC Proxy (which has no enumerable own keys).
    */
   router?: Record<string, unknown>
 }
 
 /** Adapt an oRPC (or any direct-call) client into the `RpcClient` shape.
  *
- * Walks `client[ns][proc]` and accepts any function value. Missing or
- * non-function entries become `undefined` in the output, which the
- * mutation layer treats as a no-op.
+ * oRPC's `createORPCClient` / `createRouterClient` returns a Proxy tree
+ * (no own enumerable keys, every property access appends a segment to
+ * the procedure path). To enumerate namespaces and procedures without
+ * tripping the Proxy, the adapter walks the **router definition** (a
+ * plain object) when one is supplied.
+ *
+ * The procedure functions themselves are still resolved via the Proxy
+ * (`client[ns][proc]`), which builds the correct call path.
  */
 export const createORPCAdapter = (
   client: Record<string, unknown>,
   options: CreateRpcAdapterOptions = {},
 ): RpcClient => {
-  const { namespaces, skipValidation = false, router } = options
+  const { namespaces, router } = options
   const out: Record<string, Record<string, RpcProcedure | undefined>> = {}
 
-  // When `router` is provided, enumerate namespaces from the router
-  // definition. oRPC clients (createORPCClient / createRouterClient)
-  // return a Proxy with no enumerable own keys, so Object.entries()
-  // returns []. The router definition is a plain object we can walk.
-  const namespaceKeys = router
-    ? Object.keys(router)
-    : Object.keys(client)
+  const namespaceKeys = Object.keys(router ?? client)
 
   for (const ns of namespaceKeys) {
     if (namespaces && !namespaces.includes(ns)) continue
 
-    // Access the namespace on both client (Proxy) and router (plain object)
     const nsClient = (client as Record<string, unknown>)[ns]
-    if (nsClient === null || nsClient === undefined || (typeof nsClient !== 'object' && typeof nsClient !== 'function')) {
-      if (!skipValidation) {
-        console.warn(`[createORPCAdapter] namespace '${ns}' is not an object/function — skipping`)
-      }
-      continue
-    }
+    if (nsClient === null || nsClient === undefined) continue
 
-    // Enumerate procedures from the router definition (plain object)
-    const nsRouter = router ? (router[ns] as Record<string, unknown> | undefined) : undefined
-    const procKeys = nsRouter ? Object.keys(nsRouter) : Object.keys(nsClient as Record<string, unknown>)
+    const nsRouter = (router?.[ns] ?? nsClient) as Record<string, unknown>
+    const procKeys = Object.keys(nsRouter)
 
     const procMap: Record<string, RpcProcedure | undefined> = {}
     for (const proc of procKeys) {
-      // Access the procedure on the client Proxy — this triggers the
-      // Proxy's `get` trap and returns a callable procedure function.
-      const procValue = typeof nsClient === 'function'
-        ? undefined
-        : (nsClient as Record<string, unknown>)[proc]
-
-      if (typeof procValue === 'function') {
-        procMap[proc] = procValue as RpcProcedure
-      } else if (procValue === undefined || procValue === null) {
-        procMap[proc] = undefined
-      } else if (!skipValidation) {
-        console.warn(
-          `[createORPCAdapter] ${ns}.${proc} is not a function (${typeof procValue}) — skipping`,
-        )
-      }
+      const procValue = (nsClient as Record<string, unknown>)[proc]
+      procMap[proc] = typeof procValue === 'function'
+        // Wrap in a plain function: any property access on the inner
+        // oRPC Proxy would otherwise extend its procedure path. Storing
+        // and calling through this wrapper keeps the call path stable.
+        ? ((input: unknown) => (procValue as RpcProcedure)(input)) as RpcProcedure
+        : undefined
     }
     out[ns] = procMap
   }
@@ -115,17 +92,12 @@ export const createTRPCAdapter = (
   client: Record<string, unknown>,
   options: CreateRpcAdapterOptions = {},
 ): RpcClient => {
-  const { namespaces, skipValidation = false } = options
+  const { namespaces } = options
   const out: Record<string, Record<string, RpcProcedure | undefined>> = {}
 
   for (const [ns, procs] of Object.entries(client)) {
     if (namespaces && !namespaces.includes(ns)) continue
-    if (procs === null || procs === undefined || typeof procs !== 'object') {
-      if (!skipValidation) {
-        console.warn(`[createTRPCAdapter] namespace '${ns}' is not an object — skipping`)
-      }
-      continue
-    }
+    if (procs === null || procs === undefined || typeof procs !== 'object') continue
 
     const procMap: Record<string, RpcProcedure | undefined> = {}
     for (const [proc, value] of Object.entries(procs as Record<string, unknown>)) {
@@ -135,21 +107,12 @@ export const createTRPCAdapter = (
       }
 
       if (typeof value === 'function') {
-        // Direct-call procedures (oRPC, plain functions) also work here.
         procMap[proc] = value as RpcProcedure
       } else if (typeof value === 'object') {
         const proxy = value as Record<string, unknown>
         if (typeof proxy.mutate === 'function') {
           procMap[proc] = (input) => (proxy.mutate as RpcProcedure)(input)
-        } else if (!skipValidation) {
-          console.warn(
-            `[createTRPCAdapter] ${ns}.${proc} has no .mutate method — skipping`,
-          )
         }
-      } else if (!skipValidation) {
-        console.warn(
-          `[createTRPCAdapter] ${ns}.${proc} is not a tRPC procedure (${typeof value}) — skipping`,
-        )
       }
     }
     out[ns] = procMap

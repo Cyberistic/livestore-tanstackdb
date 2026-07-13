@@ -66,6 +66,49 @@ export interface CreateMutationsConfig {
   rpcClient?: RpcClient
   /** Per-procedure config. */
   rpcConfig?: RpcConfig
+  /**
+   * Called when an RPC write-back fails. Receives the raw error from
+   * the RPC client (typed as `unknown` because the client is
+   * RPC-agnostic — oRPC errors are `ORPCError`, tRPC errors are
+   * `TRPCClientError`, plain fetch wrappers throw their own things).
+   * Use a runtime check (`err instanceof ORPCError`) to narrow.
+   *
+   * Falls back to `console.error` when omitted. The local LiveStore
+   * commit is never rolled back — RPC errors are surfaced but don't
+   * block the optimistic local-first path.
+   */
+  onRpcError?: (err: unknown, ctx: RpcErrorContext) => void
+}
+
+/** Which mutation slot triggered the RPC call. */
+export type RpcKind = 'insert' | 'update' | 'delete' | 'bulk-insert'
+
+/**
+ * Context passed to the `onRpcError` callback. Identifies where the
+ * error came from so consumers can route it (toast, retry, log,
+ * rollback) appropriately.
+ *
+ * @example
+ * ```ts
+ * rpc: {
+ *   client: orpc,
+ *   config: rpcConfig,
+ *   onError: (err, { proc, kind, input }) => {
+ *     if (err instanceof ORPCError && err.code === 'NOT_FOUND') return
+ *     toast.error(`${kind} ${proc} failed`)
+ *   },
+ * }
+ * ```
+ */
+export interface RpcErrorContext {
+  /** Namespace on the RPC client (e.g. `"posts"`). */
+  ns: string
+  /** Procedure name that was invoked (e.g. `"create"`). */
+  proc: string
+  /** Which mutation slot triggered the call. */
+  kind: RpcKind
+  /** The input forwarded to the procedure (post-`map`). */
+  input: unknown
 }
 
 export interface MutationCallbacks {
@@ -117,22 +160,35 @@ const tryCommit = (
  * Fire-and-forget rpc call. Always `void`s the promise so the caller
  * never awaits; never throws. RPC errors shouldn't block the local
  * optimistic LiveStore commit.
+ *
+ * When `onError` is provided, errors are routed to it instead of
+ * `console.error`. The callback receives the raw error plus a typed
+ * context (namespace, procedure, mutation kind, input).
  */
 const fireRpc = (
   proc: RpcProcedure | undefined,
   input: unknown,
+  ctx: { ns: string; proc: string; kind: RpcKind },
+  onError?: (err: unknown, ctx: RpcErrorContext) => void,
 ): void => {
   if (!proc) return
-  console.log('[fireRpc] firing RPC proc with input:', input)
   try {
     const result = proc(input)
     if (result && typeof (result as Promise<unknown>).catch === 'function') {
       void (result as Promise<unknown>).catch((err: unknown) => {
-        console.error('[fireRpc] RPC error:', err)
+        if (onError) {
+          onError(err, { ...ctx, input })
+        } else {
+          console.error('[fireRpc] RPC error in', ctx, ':', err)
+        }
       })
     }
   } catch (err) {
-    console.error('[fireRpc] sync RPC error:', err)
+    if (onError) {
+      onError(err as unknown, { ...ctx, input })
+    } else {
+      console.error('[fireRpc] sync RPC error in', ctx, ':', err)
+    }
   }
 }
 
@@ -203,7 +259,7 @@ const specMap = (entry: ProcEntry) => entry.spec.map
 export function createMutations(
   config: CreateMutationsConfig,
 ): MutationCallbacks {
-  const { store, modelName, events, rpcClient, rpcConfig } = config
+  const { store, modelName, events, rpcClient, rpcConfig, onRpcError } = config
   const modelPrefix = lcFirst(modelName)
   const createdKey = `${modelPrefix}Created`
   const deletedKey = `${modelPrefix}Deleted`
@@ -222,24 +278,17 @@ export function createMutations(
     const clientNs =
       (rpcClient as Record<string, Record<string, RpcProcedure | undefined>> | undefined) ?? {}
 
-    console.log('[createMutations] rpcClient namespaces:', Object.keys(clientNs))
-    console.log('[createMutations] rpcConfig namespaces:', Object.keys(rpcConfig))
-
     for (const [ns, procs] of Object.entries(rpcConfig)) {
       if (!procs) continue
       const nsClient = clientNs[ns]
-      console.log(`[createMutations] ns="${ns}" clientNs[${ns}]:`, nsClient ? Object.keys(nsClient) : 'MISSING')
       for (const [proc, rawSpec] of Object.entries(procs)) {
         const spec = normalizeSpec(rawSpec)
         const procFn = nsClient?.[proc]
         const kinds = classifyProcedure(proc, spec.event)
-        console.log(`[createMutations]   proc="${proc}" fn=${typeof procFn} kinds=${kinds.join(',')} event=${spec.event ?? 'none'}`)
         const entry: ProcEntry = { ns, proc, procFn, spec }
         for (const kind of kinds) partitioned[kind].push(entry)
       }
     }
-  } else {
-    console.log('[createMutations] no rpcConfig provided')
   }
 
   // Cache the per-kind event override (the FIRST procedure with an
@@ -260,13 +309,6 @@ export function createMutations(
   const updateEventOverride = firstEventOverride(partitioned.update)
   const updateEntries = partitioned.update
 
-  console.log('[createMutations] partitioned:', {
-    insert: partitioned.insert.map((e) => `${e.ns}.${e.proc}`),
-    update: partitioned.update.map((e) => `${e.ns}.${e.proc}`),
-    delete: partitioned.delete.map((e) => `${e.ns}.${e.proc}`),
-  })
-  console.log('[createMutations] event keys:', { insertEventKey, deleteEventKey, updateEventOverride })
-
   // ── Tier 1.7 — split insert entries into regular vs bulk ──
   // Procedures with an `Upserted` event override belong to the bulk
   // insert path only. They must NOT appear in the per-row `commitInsert`
@@ -279,11 +321,12 @@ export function createMutations(
   const runProc = (
     entry: ProcEntry,
     row: any,
+    kind: RpcKind,
     original?: any,
   ): void => {
     const map = specMap(entry)
     const payload = map ? map(row, original) : row
-    fireRpc(entry.procFn, payload)
+    fireRpc(entry.procFn, payload, { ns: entry.ns, proc: entry.proc, kind }, onRpcError)
   }
 
   // ── Tier 1.7 — auto-detect the BulkUpserted event ──
@@ -295,14 +338,14 @@ export function createMutations(
   const commitBulkInsert: MutationCallbacks['commitBulkInsert'] = bulkUpsertedEvent
     ? (rows) => {
         tryCommit(store, bulkUpsertedEvent, { rows })
-        for (const e of bulkInsertEntries) runProc(e, rows)
+        for (const e of bulkInsertEntries) runProc(e, rows, 'bulk-insert')
       }
     : undefined
 
   return {
     commitInsert: (row) => {
       tryCommit(store, findEvent(events, insertEventKey), row)
-      for (const e of regularInsertEntries) runProc(e, row)
+      for (const e of regularInsertEntries) runProc(e, row, 'insert')
     },
     ...(commitBulkInsert
       ? { commitBulkInsert }
@@ -326,10 +369,6 @@ export function createMutations(
         if (onlyBooleans) {
           for (const [field, value] of changeEntries) {
             if (typeof value !== 'boolean') continue
-            // Match `createLiveStoreDb`'s `eventSuffixesFor`: a field
-            // whose PascalCase form already ends in "Completed" emits
-            // just "Completed" (no doubling), e.g. `completed` →
-            // `todoCompleted` not `todoCompletedCompleted`.
             const cap = ucFirst(field)
             const onKey =
               cap.endsWith('Completed')
@@ -349,7 +388,7 @@ export function createMutations(
         }
       }
 
-      for (const e of updateEntries) runProc(e, merged, original)
+      for (const e of updateEntries) runProc(e, merged, 'update', original)
     },
 
     commitDelete: (row) => {
@@ -360,7 +399,12 @@ export function createMutations(
       })
       for (const e of partitioned.delete) {
         const map = specMap(e)
-        fireRpc(e.procFn, map ? map(row) : { id })
+        fireRpc(
+          e.procFn,
+          map ? map(row) : { id },
+          { ns: e.ns, proc: e.proc, kind: 'delete' },
+          onRpcError,
+        )
       }
     },
   }

@@ -14,12 +14,14 @@ import { router } from './orpc.ts'
  * React Query calls.
  *
  * Server-side: uses `createRouterClient(router, ...)` for direct router
- * invocation with no HTTP loopback. `getRequestHeaders()` is forwarded as
- * initial context so procedures that need request headers can access them.
- * This matches the "Optimize SSR" pattern from the oRPC TanStack Start
- * adapter docs.
+ * invocation with no HTTP loopback. The current request headers are
+ * forwarded into the oRPC context as `headers` so handlers can read
+ * cookies / authorization for auth (Better Auth setup).
  *
- * Client-side: wraps the same `/api/rpc` route the server handler exposes.
+ * Client-side: wraps the same `/api/rpc` route the server handler
+ * exposes. The browser forwards its own `Cookie` header automatically,
+ * which the HTTP handler at `/api/rpc/$` re-attaches as `headers` on
+ * the server side.
  *
  * The resulting object's structure matches the contract:
  *   `orpc.posts.list()`, `orpc.posts.create({ text })`,
@@ -35,16 +37,6 @@ const getORPCClient = createIsomorphicFn()
   .client((): RouterClient<typeof router> => {
     const link = new RPCLink({
       url: `${window.location.origin}/api/rpc`,
-      interceptors: [
-        async (options) => {
-          const path = options.path.join('/')
-          console.log(`[oRPC client] → ${path}`, options.input)
-          const start = performance.now()
-          const result = await options.next()
-          console.log(`[oRPC client] ← ${path} (${(performance.now() - start).toFixed(1)}ms)`)
-          return result
-        },
-      ],
     })
     return createORPCClient(link)
   })

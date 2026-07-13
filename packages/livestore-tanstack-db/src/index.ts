@@ -45,7 +45,7 @@ export type {
 export { useCrud } from './useCrud.ts'
 export type { CrudActions, CrudResult } from './useCrud.ts'
 
-export type { RpcClient, RpcConfig, RpcProcedure } from './mutations.ts'
+export type { RpcClient, RpcConfig, RpcProcedure, RpcErrorContext, RpcKind } from './mutations.ts'
 
 export { createORPCAdapter, createTRPCAdapter } from './rpcAdapter.ts'
 export type { CreateRpcAdapterOptions, NamespacesOf } from './rpcAdapter.ts'

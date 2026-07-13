@@ -10,6 +10,14 @@ let db: CfTypes.D1Database | undefined
 
 const SyncBackendDOBase = SyncBackend.makeDurableObject({
   storage: { _tag: 'do-sqlite' },
+  // Forward `Cookie` and `Authorization` from the WebSocket / HTTP sync
+  // request into the `onPush` / `onPull` callbacks so they can validate
+  // the session before accepting events. This is the LiveStore
+  // cookie-based auth pattern (see `docs.livestore.dev/patterns/auth`).
+  // Drop this list once every client ships a real `authToken` in
+  // `syncPayload` — today both clients send the same hard-coded
+  // placeholder so cookies aren't strictly required.
+  forwardHeaders: ['Cookie', 'Authorization'],
   onPush: async (message, context) => {
     if (db === undefined) {
       throw new Error('D1 binding is unavailable')

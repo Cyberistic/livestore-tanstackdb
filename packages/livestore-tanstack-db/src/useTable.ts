@@ -5,7 +5,7 @@ import type { Collection } from '@tanstack/db'
 import { useMemo } from 'react'
 
 import { liveStoreCollectionOptions, type LiveStoreRow } from './liveStoreCollection.ts'
-import type { MutationCallbacks, RpcClient, RpcConfig } from './mutations.ts'
+import type { MutationCallbacks, RpcClient, RpcConfig, RpcErrorContext } from './mutations.ts'
 import { createMutations } from './mutations.ts'
 import { useLiveStoreConfig } from './LiveStoreProvider.tsx'
 import { getKeyFromSchema } from './getKeyFromSchema.ts'
@@ -362,10 +362,17 @@ export interface UseTableOptions<TName extends TableName> {
    * have mutations round-trip to the server automatically. The package
    * uses the Tier 0.6 heuristics in `createMutations()` to detect
    * insert vs update vs delete procs.
+   *
+   * `onError` is the typed error surface for failed write-backs. The
+   * callback receives the raw error plus a context object identifying
+   * which procedure failed and what input was sent. Use a runtime
+   * check (`err instanceof ORPCError`) to narrow to your RPC client's
+   * error type. Defaults to `console.error`.
    */
   rpc?: {
     client?: RpcClient
     config?: RpcConfig
+    onError?: (err: unknown, ctx: RpcErrorContext) => void
   }
   /**
    * Explicit LiveStore runtime. If omitted, the package reads it from
@@ -445,22 +452,15 @@ export const getCollection = <TName extends TableName>(
 
   // Tier 0.6 — oRPC write-back via the createMutations helper.
   const mutationOverrides = rpc?.client
-    ? (() => {
-        console.log(`[getCollection] creating mutations for "${name}" with rpc.client (${Object.keys(rpc.client).length} namespaces)`)
-        return createMutations({
-          store,
-          modelName: name,
-          events: live,
-          rpcClient: rpc.client,
-          rpcConfig: rpc.config,
-        })
-      })()
-    : (() => {
-        if (rpc?.config) {
-          console.warn(`[getCollection] rpc.config provided but rpc.client is missing for "${name}"`)
-        }
-        return null
-      })()
+    ? createMutations({
+        store,
+        modelName: name,
+        events: live,
+        rpcClient: rpc.client,
+        rpcConfig: rpc.config,
+        onRpcError: rpc.onError,
+      })
+    : null
 
   // Resolve the actual commit handlers: caller overrides win, then
   // mutationOverrides (Tier 0.6 RPC write-back), then the auto-derived
@@ -487,16 +487,13 @@ export const getCollection = <TName extends TableName>(
               // event is emitted. Single-row transactions still go
               // through `commitInsert` for back-compat.
               const mutations = transaction.mutations
-              console.log(`[onInsert] "${name}" mutations=${mutations.length}`)
               if (finalBulkInsert && mutations.length > 1) {
-                console.log(`[onInsert] dispatching to bulkInsert`)
                 finalBulkInsert(
                   mutations.map((m) => m.modified) as unknown as LiveStoreRow[],
                 )
                 return
               }
               for (const m of mutations) {
-                console.log(`[onInsert] calling finalInsert for row`, m.modified)
                 finalInsert(m.modified as LiveStoreRow)
               }
             },

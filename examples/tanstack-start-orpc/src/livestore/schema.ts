@@ -49,9 +49,13 @@ export const { tables, events, materializers, schema, readOnly } = createLiveSto
 export const rpcConfig = {
   posts: {
     create: { event: 'todoCreated' },
-    complete: {},
+    // `complete` toggles existing rows (boolean update). Pin the event
+    // so classifyProcedure routes it to the UPDATE bucket only — without
+    // this it would fall into the `['insert', 'update']` upsert default
+    // and fire on every new row, racing the create RPC.
+    complete: { event: 'todoCompleted' },
     delete: { event: 'todoDeleted' },
-    bulkSeed: { event: 'todoBulkUpserted', map: (rows: readonly { text: string }[]) => ({ rows }) },
+    bulkSeed: { event: 'todoBulkUpserted' },
   },
 } as const
 
