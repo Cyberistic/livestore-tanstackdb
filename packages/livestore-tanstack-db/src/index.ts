@@ -67,6 +67,40 @@ export type {
   LiveStoreConfig,
 } from './LiveStoreProvider.tsx'
 
+export { useJoinQuery } from './useJoinQuery.ts'
+
 export { getKeyFromSchema } from './getKeyFromSchema.ts'
 export { softDeleteLivePredicate } from './softDeleteLivePredicate.ts'
 export { toStandardSchemaV1 } from './standardSchema.ts'
+
+// Re-export TanStack DB query operators so consumers can import
+// everything from `livestore-tanstack-db` instead of juggling
+// `@tanstack/react-db` and `@tanstack/db` separately.
+export {
+  eq,
+  gt,
+  gte,
+  lt,
+  lte,
+  and,
+  or,
+  not,
+  like,
+  ilike,
+  inArray,
+  isNull,
+  isUndefined,
+  count,
+  avg,
+  sum,
+  min,
+  max,
+  concat,
+  upper,
+  lower,
+  length,
+  coalesce,
+  toArray,
+  materialize,
+  Query,
+} from '@tanstack/react-db'

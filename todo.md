@@ -92,7 +92,7 @@ Top 3 the user picked:
 | 4.1 | `bun live:gen` reads schema, regenerates everything | ✅ | Shipped as `bun run gen` (the dream-list's `bun live:gen` name). The single command chains `gen:spa` + `gen:start-orpc` + `bun run build`, regenerating Effect schemas + LiveStore table defs + rebuilding the integration packages in one go. Add a Prisma model, run `bun run gen`, and the new collection is available everywhere. |
 | 4.2 | Full SSR with `<HydrationBoundary>`-style events injection | 🚫 | Out of scope. |
 | 4.3 | Versioned schema migrations (`v2.X` events co-existing with `v1.X`) | 🚫 | Out of scope. |
-| 4.4 | Cross-collection reactive joins | ⏳ | TanStack DB supports this; need the type alignment (0.4). |
+| 4.4 | Cross-collection reactive joins | ✅ | **`useJoinQuery(spec, queryFn)` in `src/useJoinQuery.ts`**. Resolves LiveStore-backed Collections by table name from `<LiveStoreProvider>` context and runs a TanStack DB join query via `useLiveQuery`. Consumer passes `{ alias: 'TableName' }` mapping + a query builder callback that receives resolved collections. TanStack DB handles the reactive join execution — when any underlying table changes, the joined result re-computes automatically. Also re-exports `eq`, `gt`, `and`, `or`, `Query`, `toArray`, `materialize`, etc. from `@tanstack/react-db` so consumers can import everything from `livestore-tanstack-db`. |
 
 ---
 
@@ -185,6 +185,7 @@ Agent 1's `createLiveStoreDb` already returns `{ tables, events, materializers, 
 | `packages/livestore-tanstack-db/src/lazyDb.ts` | ✅ Tier 2.1 — `createLazyDb(tables, options)` proxy + `LoaderProxy` |
 | `packages/livestore-tanstack-db/src/LiveStoreProvider.tsx` | ✅ Tier 3.1 — `<LiveStoreProvider>` + `useLiveStoreConfig` |
 | `packages/livestore-tanstack-db/src/devtools/` | ✅ Tier 2.7 — LiveStore + TanStack DB devtools panel |
+| `packages/livestore-tanstack-db/src/useJoinQuery.ts` | ✅ Tier 4.4 — cross-collection reactive joins via `useJoinQuery` |
 | `examples/spa/` | ✅ SPA demo using `livestore-prisma` + `livestore-tanstack-db` |
 | `examples/tanstack-start-orpc/` | ✅ TanStack Start + oRPC demo |
 | `cloudflare-template/` | ✅ Agent 4's Cloudflare Worker template directory |
