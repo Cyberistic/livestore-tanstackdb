@@ -11,18 +11,18 @@
  * Pairs with `livestore-tanstack-db`, which provides the
  * TanStack-DB glue (useTable, lazyDb, mutations, LiveStoreProvider).
  */
-export { createLiveStoreDb } from './createLiveStoreDb.ts'
+export { createLiveStoreDb } from "./createLiveStoreDb.ts";
 export type {
   LiveStoreDb,
   LiveStoreDbConfig,
   DefaultEventConfig,
   ClientDocumentInput,
-} from './createLiveStoreDb.ts'
+} from "./createLiveStoreDb.ts";
 export type {
   ColumnDescriptor,
   TableDescriptor,
   PrimaryKeyColumns,
   SoftDeleteColumns,
   Tables,
-} from './types.ts'
-export type ModelName = string
+} from "./types.ts";
+export type ModelName = string;

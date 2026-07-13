@@ -1,6 +1,6 @@
-import { queryDb, type LiveQueryDef } from '@livestore/livestore'
+import { queryDb, type LiveQueryDef } from "@livestore/livestore";
 
-import { tables } from './schema.ts'
+import { tables } from "./schema.ts";
 
 /**
  * Active UI session state (one row per session, stored in OPFS only).
@@ -10,9 +10,8 @@ import { tables } from './schema.ts'
  * across module boundaries — the result type widens to
  * `LiveQueryDef<unknown, 'def'>` without the hint.
  */
-type UiStateRow = typeof tables.uiState.Type
+type UiStateRow = typeof tables.uiState.Type;
 
-export const uiState$: LiveQueryDef<UiStateRow, 'def'> = queryDb(
-  tables.uiState.get(),
-  { label: 'uiState' },
-) as never
+export const uiState$: LiveQueryDef<UiStateRow, "def"> = queryDb(tables.uiState.get(), {
+  label: "uiState",
+}) as never;

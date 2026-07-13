@@ -1,5 +1,5 @@
-import type { StandardSchemaV1 } from '@standard-schema/spec'
-import { Schema } from '@livestore/livestore'
+import type { StandardSchemaV1 } from "@standard-schema/spec";
+import { Schema } from "@livestore/livestore";
 
 /**
  * Wrap any generated Effect Schema so it satisfies TanStack DB's
@@ -18,4 +18,4 @@ import { Schema } from '@livestore/livestore'
 export const toStandardSchemaV1 = <T>(s: Schema.Schema<T, any, any>) =>
   Schema.standardSchemaV1(
     s as unknown as Schema.Schema<T, any, never>,
-  ) as unknown as StandardSchemaV1<unknown, T> & Schema.Schema<T, any, never>
+  ) as unknown as StandardSchemaV1<unknown, T> & Schema.Schema<T, any, never>;

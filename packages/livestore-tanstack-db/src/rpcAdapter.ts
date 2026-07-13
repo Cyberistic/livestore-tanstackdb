@@ -13,7 +13,7 @@
  *
  * Both return the same normalized `RpcClient` shape that `useTable` consumes.
  */
-import type { RpcClient, RpcProcedure } from './mutations.ts'
+import type { RpcClient, RpcProcedure } from "./mutations.ts";
 
 export interface CreateRpcAdapterOptions {
   /**
@@ -21,7 +21,7 @@ export interface CreateRpcAdapterOptions {
    * exposes internal/admin procedures you don't want to surface to the
    * schema-driven write-back. Defaults to all namespaces.
    */
-  namespaces?: ReadonlyArray<string>
+  namespaces?: ReadonlyArray<string>;
 
   /**
    * The router definition object (e.g. `os.router({ posts: {...} })`).
@@ -29,7 +29,7 @@ export interface CreateRpcAdapterOptions {
    * from the router instead of walking the client. Required when the
    * client is an oRPC Proxy (which has no enumerable own keys).
    */
-  router?: Record<string, unknown>
+  router?: Record<string, unknown>;
 }
 
 /** Adapt an oRPC (or any direct-call) client into the `RpcClient` shape.
@@ -47,35 +47,36 @@ export const createORPCAdapter = (
   client: Record<string, unknown>,
   options: CreateRpcAdapterOptions = {},
 ): RpcClient => {
-  const { namespaces, router } = options
-  const out: Record<string, Record<string, RpcProcedure | undefined>> = {}
+  const { namespaces, router } = options;
+  const out: Record<string, Record<string, RpcProcedure | undefined>> = {};
 
-  const namespaceKeys = Object.keys(router ?? client)
+  const namespaceKeys = Object.keys(router ?? client);
 
   for (const ns of namespaceKeys) {
-    if (namespaces && !namespaces.includes(ns)) continue
+    if (namespaces && !namespaces.includes(ns)) continue;
 
-    const nsClient = (client as Record<string, unknown>)[ns]
-    if (nsClient === null || nsClient === undefined) continue
+    const nsClient = (client as Record<string, unknown>)[ns];
+    if (nsClient === null || nsClient === undefined) continue;
 
-    const nsRouter = (router?.[ns] ?? nsClient) as Record<string, unknown>
-    const procKeys = Object.keys(nsRouter)
+    const nsRouter = (router?.[ns] ?? nsClient) as Record<string, unknown>;
+    const procKeys = Object.keys(nsRouter);
 
-    const procMap: Record<string, RpcProcedure | undefined> = {}
+    const procMap: Record<string, RpcProcedure | undefined> = {};
     for (const proc of procKeys) {
-      const procValue = (nsClient as Record<string, unknown>)[proc]
-      procMap[proc] = typeof procValue === 'function'
-        // Wrap in a plain function: any property access on the inner
-        // oRPC Proxy would otherwise extend its procedure path. Storing
-        // and calling through this wrapper keeps the call path stable.
-        ? ((input: unknown) => (procValue as RpcProcedure)(input)) as RpcProcedure
-        : undefined
+      const procValue = (nsClient as Record<string, unknown>)[proc];
+      procMap[proc] =
+        typeof procValue === "function"
+          ? // Wrap in a plain function: any property access on the inner
+            // oRPC Proxy would otherwise extend its procedure path. Storing
+            // and calling through this wrapper keeps the call path stable.
+            (((input: unknown) => (procValue as RpcProcedure)(input)) as RpcProcedure)
+          : undefined;
     }
-    out[ns] = procMap
+    out[ns] = procMap;
   }
 
-  return out as RpcClient
-}
+  return out as RpcClient;
+};
 
 /**
  * Adapt a tRPC client into the `RpcClient` shape.
@@ -92,34 +93,34 @@ export const createTRPCAdapter = (
   client: Record<string, unknown>,
   options: CreateRpcAdapterOptions = {},
 ): RpcClient => {
-  const { namespaces } = options
-  const out: Record<string, Record<string, RpcProcedure | undefined>> = {}
+  const { namespaces } = options;
+  const out: Record<string, Record<string, RpcProcedure | undefined>> = {};
 
   for (const [ns, procs] of Object.entries(client)) {
-    if (namespaces && !namespaces.includes(ns)) continue
-    if (procs === null || procs === undefined || typeof procs !== 'object') continue
+    if (namespaces && !namespaces.includes(ns)) continue;
+    if (procs === null || procs === undefined || typeof procs !== "object") continue;
 
-    const procMap: Record<string, RpcProcedure | undefined> = {}
+    const procMap: Record<string, RpcProcedure | undefined> = {};
     for (const [proc, value] of Object.entries(procs as Record<string, unknown>)) {
       if (value === undefined || value === null) {
-        procMap[proc] = undefined
-        continue
+        procMap[proc] = undefined;
+        continue;
       }
 
-      if (typeof value === 'function') {
-        procMap[proc] = value as RpcProcedure
-      } else if (typeof value === 'object') {
-        const proxy = value as Record<string, unknown>
-        if (typeof proxy.mutate === 'function') {
-          procMap[proc] = (input) => (proxy.mutate as RpcProcedure)(input)
+      if (typeof value === "function") {
+        procMap[proc] = value as RpcProcedure;
+      } else if (typeof value === "object") {
+        const proxy = value as Record<string, unknown>;
+        if (typeof proxy.mutate === "function") {
+          procMap[proc] = (input) => (proxy.mutate as RpcProcedure)(input);
         }
       }
     }
-    out[ns] = procMap
+    out[ns] = procMap;
   }
 
-  return out as RpcClient
-}
+  return out as RpcClient;
+};
 
 /**
  * Type-only helper: extract the namespaces from an RPC client type. Useful
@@ -134,6 +135,5 @@ export const createTRPCAdapter = (
  * // → 'teacher' | 'student' | ...
  * ```
  */
-export type NamespacesOf<TClient> = TClient extends Record<string, any>
-  ? keyof TClient & string
-  : never
+export type NamespacesOf<TClient> =
+  TClient extends Record<string, any> ? keyof TClient & string : never;

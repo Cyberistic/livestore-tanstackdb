@@ -1,11 +1,23 @@
 {
   "name": "spa-example",
   "version": "0.1.0",
-  "type": "module",
   "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "deploy": "bun run build && alchemy deploy",
+    "dev": "alchemy dev",
+    "preview": "vite preview",
+    "test": "playwright test",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:migrate": "DATABASE_URL=file:./prisma/dev.db prisma migrate diff --from-empty --to-schema ./prisma/schema.prisma --script > prisma/migrations/0001_init/migration.sql",
+    "alchemy:dev": "alchemy dev",
+    "alchemy:deploy": "alchemy deploy",
+    "alchemy:destroy": "alchemy destroy",
+    "destroy": "alchemy destroy"
+  },
   "dependencies": {
-    "livestore-prisma": "file:../../packages/livestore-prisma",
-    "livestore-tanstack-db": "file:../../packages/livestore-tanstack-db",
     "@livestore/adapter-web": "0.4.0",
     "@livestore/livestore": "0.4.0",
     "@livestore/peer-deps": "0.4.0",
@@ -18,6 +30,8 @@
     "@tanstack/devtools-utils": "^0.6.0",
     "@tanstack/react-db": "0.1.92",
     "effect": "3.21.4",
+    "livestore-prisma": "file:../../packages/livestore-prisma",
+    "livestore-tanstack-db": "file:../../packages/livestore-tanstack-db",
     "prisma": "^7.8.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -47,20 +61,6 @@
   },
   "engines": {
     "node": ">=24.0.0"
-  },
-  "scripts": {
-    "build": "vite build",
-    "deploy": "bun run build && alchemy deploy",
-    "dev": "alchemy dev",
-    "preview": "vite preview",
-    "test": "playwright test",
-    "typecheck": "tsc --noEmit",
-    "db:generate": "prisma generate",
-    "db:migrate": "DATABASE_URL=file:./prisma/dev.db prisma migrate diff --from-empty --to-schema ./prisma/schema.prisma --script > prisma/migrations/0001_init/migration.sql",
-    "alchemy:dev": "alchemy dev",
-    "alchemy:deploy": "alchemy deploy",
-    "alchemy:destroy": "alchemy destroy",
-    "destroy": "alchemy destroy"
   },
   "trustedDependencies": [
     "@parcel/watcher"

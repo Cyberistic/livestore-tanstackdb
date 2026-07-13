@@ -57,17 +57,17 @@
  * })
  * ```
  */
-import { queryDb } from '@livestore/livestore'
-import type { Collection } from '@tanstack/db'
-import * as React from 'react'
+import { queryDb } from "@livestore/livestore";
+import type { Collection } from "@tanstack/db";
+import * as React from "react";
 
 import {
   createCollection,
   liveStoreCollectionOptions,
   type LiveStoreRow,
-} from './liveStoreCollection.ts'
-import { useLiveStoreConfig } from './LiveStoreProvider.tsx'
-import { useTable } from './useTable.ts'
+} from "./liveStoreCollection.ts";
+import { useLiveStoreConfig } from "./LiveStoreProvider.tsx";
+import { useTable } from "./useTable.ts";
 
 /**
  * Lazy import of the store module. We can't import `getOrCreateAppStore`
@@ -81,21 +81,19 @@ import { useTable } from './useTable.ts'
  * to get the LiveStore `Store` instance the adapter expects.
  */
 const loadStore = async () => {
-  const mod = await import('./getOrCreateStore.ts')
-  return (mod as any).getOrCreateStore() as ReturnType<typeof import('./getOrCreateStore.ts').getOrCreateStore>
-}
+  const mod = await import("./getOrCreateStore.ts");
+  return (mod as any).getOrCreateStore() as ReturnType<
+    typeof import("./getOrCreateStore.ts").getOrCreateStore
+  >;
+};
 
 // ─────────────────────────────────────────────────────────────────────
 // Public types
 // ─────────────────────────────────────────────────────────────────────
 
-export type SyncOp = 'insert' | 'update' | 'delete'
+export type SyncOp = "insert" | "update" | "delete";
 
-export type OnSync = (
-  name: string,
-  op: SyncOp,
-  payload: unknown,
-) => void
+export type OnSync = (name: string, op: SyncOp, payload: unknown) => void;
 
 export interface LazyDbOptions {
   /**
@@ -107,7 +105,7 @@ export interface LazyDbOptions {
    * `camelCase-plural → PascalCase-singular` case (including
    * `quizzes → Quiz` etc).
    */
-  events?: Record<string, unknown>
+  events?: Record<string, unknown>;
 
   /**
    * Override or extend the inferred mapping. Keys are the proxy
@@ -123,7 +121,7 @@ export interface LazyDbOptions {
    * })
    * ```
    */
-  modelNames?: Record<string, string>
+  modelNames?: Record<string, string>;
 
   /**
    * Tables that are server-authoritative (e.g. LiveStore's own
@@ -132,7 +130,7 @@ export interface LazyDbOptions {
    * LiveStore event stream / an oRPC query, never write through the
    * collection.
    */
-  serverOnly?: string[]
+  serverOnly?: string[];
 
   /**
    * Read callback for non-React readers. Fires the first time a
@@ -140,7 +138,7 @@ export interface LazyDbOptions {
    * analytics / instrumentation; the actual read happens against the
    * LiveStore-backed collection.
    */
-  onRead?: (name: string) => unknown
+  onRead?: (name: string) => unknown;
 
   /**
    * Write callback for non-React writers. When a TanStack Router
@@ -153,7 +151,7 @@ export interface LazyDbOptions {
    * If omitted, non-React writes throw with a clear message
    * pointing at this option.
    */
-  onSync?: OnSync
+  onSync?: OnSync;
 }
 
 /**
@@ -164,17 +162,17 @@ export interface LazyDbOptions {
  */
 export interface LoaderProxy<T extends LiveStoreRow = LiveStoreRow> {
   /** Returns the underlying TanStack DB collection (loads the store if needed). */
-  preload(): Promise<Collection<T, string>>
+  preload(): Promise<Collection<T, string>>;
   /** Returns all rows currently in the collection. */
-  findAll(): Promise<T[]>
+  findAll(): Promise<T[]>;
   /** Returns the first row matching the given partial filter. */
-  findOne(filter: Partial<T>): Promise<T | undefined>
+  findOne(filter: Partial<T>): Promise<T | undefined>;
   /** Inserts a row. Routes through `onSync` (the LiveStore commit happens on the server). */
-  insert(row: Partial<T>): Promise<void>
+  insert(row: Partial<T>): Promise<void>;
   /** Updates a row by id. Routes through `onSync`. */
-  update(id: string, changes: Partial<T>): Promise<void>
+  update(id: string, changes: Partial<T>): Promise<void>;
   /** Deletes a row by id. Routes through `onSync`. */
-  delete(id: string): Promise<void>
+  delete(id: string): Promise<void>;
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -196,13 +194,13 @@ const insideReactRender = (): boolean => {
   const internals = (
     React as unknown as {
       __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED?: {
-        ReactCurrentDispatcher?: { current: unknown }
-      }
+        ReactCurrentDispatcher?: { current: unknown };
+      };
     }
-  ).__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED
-  const dispatcher = internals?.ReactCurrentDispatcher?.current
-  return dispatcher != null
-}
+  ).__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+  const dispatcher = internals?.ReactCurrentDispatcher?.current;
+  return dispatcher != null;
+};
 
 /**
  * Naive camelCase-plural → PascalCase-singular for the fallback path
@@ -212,20 +210,20 @@ const insideReactRender = (): boolean => {
  * (`children → child`); those need an explicit `modelNames` entry.
  */
 const inferModelNameFromTableKey = (tableKey: string): string => {
-  let name = tableKey.charAt(0).toUpperCase() + tableKey.slice(1)
-  if (name.endsWith('ies')) return name.slice(0, -3) + 'y'
+  let name = tableKey.charAt(0).toUpperCase() + tableKey.slice(1);
+  if (name.endsWith("ies")) return name.slice(0, -3) + "y";
   if (
-    name.endsWith('sses') ||
-    name.endsWith('shes') ||
-    name.endsWith('ches') ||
-    name.endsWith('xes')
+    name.endsWith("sses") ||
+    name.endsWith("shes") ||
+    name.endsWith("ches") ||
+    name.endsWith("xes")
   ) {
-    return name.slice(0, -2)
+    return name.slice(0, -2);
   }
-  if (name.endsWith('ses')) return name.slice(0, -2)
-  if (name.endsWith('s')) return name.slice(0, -1)
-  return name
-}
+  if (name.endsWith("ses")) return name.slice(0, -2);
+  if (name.endsWith("s")) return name.slice(0, -1);
+  return name;
+};
 
 /**
  * Build the table-key → model-name map by matching table keys against
@@ -241,20 +239,18 @@ const inferModelNamesFromEvents = (
   tables: Record<string, unknown>,
   events: Record<string, unknown>,
 ): Record<string, string> => {
-  const prefixToModel: Record<string, string> = {}
+  const prefixToModel: Record<string, string> = {};
   for (const event of Object.values(events)) {
-    const name = (event as { name?: unknown })?.name
-    if (typeof name !== 'string') continue
-    const m = name.match(
-      /^v\d+\.([A-Z]\w+?)(?:Created|Deleted|Upserted|Completed|Uncompleted)$/,
-    )
-    if (!m) continue
-    const modelName = m[1]!
-    const prefix = modelName.charAt(0).toLowerCase() + modelName.slice(1)
-    prefixToModel[prefix] = modelName
+    const name = (event as { name?: unknown })?.name;
+    if (typeof name !== "string") continue;
+    const m = name.match(/^v\d+\.([A-Z]\w+?)(?:Created|Deleted|Upserted|Completed|Uncompleted)$/);
+    if (!m) continue;
+    const modelName = m[1]!;
+    const prefix = modelName.charAt(0).toLowerCase() + modelName.slice(1);
+    prefixToModel[prefix] = modelName;
   }
 
-  const out: Record<string, string> = {}
+  const out: Record<string, string> = {};
   for (const tableKey of Object.keys(tables)) {
     // Try in order of specificity so e.g. `quizzes` matches `quiz`
     // (not `quizz`) when both are in the index.
@@ -262,20 +258,20 @@ const inferModelNamesFromEvents = (
       tableKey, // exact prefix match (no pluralization)
       tableKey.slice(0, -1), // strip trailing 's'
       tableKey.slice(0, -2), // strip trailing 'es'
-      tableKey.replace(/ies$/, 'y'), // 'categories' → 'category'
-    ]
+      tableKey.replace(/ies$/, "y"), // 'categories' → 'category'
+    ];
     for (const cand of candidates) {
-      const hit = prefixToModel[cand]
+      const hit = prefixToModel[cand];
       if (hit) {
-        out[tableKey] = hit
-        break
+        out[tableKey] = hit;
+        break;
       }
     }
   }
-  return out
-}
+  return out;
+};
 
-const DEFAULT_WHERE = { deletedAt: null } as const
+const DEFAULT_WHERE = { deletedAt: null } as const;
 
 // ─────────────────────────────────────────────────────────────────────
 // Loader proxy (non-React access path)
@@ -287,68 +283,68 @@ const makeLoaderProxy = (
   onRead: ((name: string) => unknown) | undefined,
   onSync: OnSync | undefined,
 ): LoaderProxy => {
-  let collectionPromise: Promise<Collection<LiveStoreRow, string>> | undefined
+  let collectionPromise: Promise<Collection<LiveStoreRow, string>> | undefined;
 
   const getCollection = (): Promise<Collection<LiveStoreRow, string>> => {
     if (!collectionPromise) {
       collectionPromise = (async () => {
-        onRead?.(name)
-        const store = await loadStore()
+        onRead?.(name);
+        const store = await loadStore();
         const query = queryDb(
-          (table.where(DEFAULT_WHERE) as unknown as Parameters<typeof queryDb>[0]),
+          table.where(DEFAULT_WHERE) as unknown as Parameters<typeof queryDb>[0],
           { label: `${name}-loader` },
-        )
+        );
         return createCollection<LiveStoreRow, string>(
           liveStoreCollectionOptions<LiveStoreRow>({
             id: `${name}-loader`,
             store,
-            query: query as unknown as Parameters<typeof liveStoreCollectionOptions>[0]['query'],
+            query: query as unknown as Parameters<typeof liveStoreCollectionOptions>[0]["query"],
             getKey: (row) => row.id as string,
           }),
-        )
-      })()
+        );
+      })();
     }
-    return collectionPromise
-  }
+    return collectionPromise;
+  };
 
-  const requireOnSync = (method: 'insert' | 'update' | 'delete'): void => {
+  const requireOnSync = (method: "insert" | "update" | "delete"): void => {
     if (!onSync) {
       throw new Error(
         `db.${name}.${method}() called outside React with no onSync callback configured. ` +
           `Either use db.${name} inside a React component (then write through the Collection's ` +
           `commitInsert / commitUpdate / commitDelete), or pass createLazyDb({ onSync }) so ` +
           `the proxy can route the write to your oRPC client.`,
-      )
+      );
     }
-  }
+  };
 
   return {
     preload: getCollection,
     findAll: async () => {
-      const collection = await getCollection()
-      return collection.toArray as never
+      const collection = await getCollection();
+      return collection.toArray as never;
     },
     findOne: async (filter) => {
-      const collection = await getCollection()
-      const entries = Object.entries(filter)
+      const collection = await getCollection();
+      const entries = Object.entries(filter);
       return collection.toArray.find((row) =>
         entries.every(([k, v]) => (row as Record<string, unknown>)[k] === v),
-      ) as never
+      ) as never;
     },
     insert: async (row) => {
-      requireOnSync('insert')
-      onSync!(name, 'insert', row)
+      requireOnSync("insert");
+      onSync!(name, "insert", row);
     },
     update: async (id, changes) => {
-      requireOnSync('update')
-      onSync!(name, 'update', { id, ...changes })
+      requireOnSync("update");
+      onSync!(name, "update", { id, ...changes });
     },
     delete: async (id) => {
-      requireOnSync('delete')
-      onSync!(name, 'delete', { id })
+      requireOnSync("delete");
+      onSync!(name, "delete", { id });
     },
-  }
-}
+  };
+};
 
 // ─────────────────────────────────────────────────────────────────────
 // Factory
@@ -373,97 +369,100 @@ export const createLazyDb = (
   tables: Record<string, unknown>,
   options: LazyDbOptions = {},
 ): Readonly<Record<string, unknown>> => {
-  const initialServerOnly = new Set<string>(options.serverOnly ?? [])
+  const initialServerOnly = new Set<string>(options.serverOnly ?? []);
   const inferredModelNames = options.events
     ? inferModelNamesFromEvents(tables, options.events)
-    : {}
+    : {};
   const modelNames: Record<string, string> = {
     ...inferredModelNames,
-    ...(options.modelNames ?? {}),
-  }
-  const onRead = options.onRead
-  const onSync = options.onSync
+    ...options.modelNames,
+  };
+  const onRead = options.onRead;
+  const onSync = options.onSync;
 
-  return new Proxy({}, {
-    get(_target, rawName) {
-      if (typeof rawName !== 'string') return undefined
+  return new Proxy(
+    {},
+    {
+      get(_target, rawName) {
+        if (typeof rawName !== "string") return undefined;
 
-      // 0. Defer any React-context reads until we KNOW we're inside a
-      //    render. `createLazyDb()` itself runs at module load (so
-      //    `import { db } from '@/lib/db'` works), and any hook call
-      //    at that point throws "Invalid hook call". We only fold in
-      //    the `<LiveStoreProvider>`-level overrides once we're inside
-      //    React and can legitimately call `useContext`.
-      const serverOnly = new Set<string>(initialServerOnly)
-      if (insideReactRender()) {
-        const liveStoreConfig = useLiveStoreConfig() as
-          | { serverOnlyTables?: ReadonlyArray<string> }
-          | null
-        if (liveStoreConfig?.serverOnlyTables) {
-          for (const name of liveStoreConfig.serverOnlyTables) {
-            serverOnly.add(name)
+        // 0. Defer any React-context reads until we KNOW we're inside a
+        //    render. `createLazyDb()` itself runs at module load (so
+        //    `import { db } from '@/lib/db'` works), and any hook call
+        //    at that point throws "Invalid hook call". We only fold in
+        //    the `<LiveStoreProvider>`-level overrides once we're inside
+        //    React and can legitimately call `useContext`.
+        const serverOnly = new Set<string>(initialServerOnly);
+        if (insideReactRender()) {
+          const liveStoreConfig = useLiveStoreConfig() as {
+            serverOnlyTables?: ReadonlyArray<string>;
+          } | null;
+          if (liveStoreConfig?.serverOnlyTables) {
+            for (const name of liveStoreConfig.serverOnlyTables) {
+              serverOnly.add(name);
+            }
           }
         }
-      }
 
-      // 1. Server-only guard — check FIRST so a thrown error doesn't
-      //    disturb React's hook bookkeeping for the current render.
-      if (serverOnly.has(rawName)) {
-        const modelName = modelNames[rawName] ?? inferModelNameFromTableKey(rawName)
-        throw new Error(
-          `Table '${modelName}' is server-authoritative. ` +
-            `Use an oRPC procedure to write to it, or \`db.${rawName}.read()\` ` +
-            `to subscribe to the audit log.`,
-        )
-      }
+        // 1. Server-only guard — check FIRST so a thrown error doesn't
+        //    disturb React's hook bookkeeping for the current render.
+        if (serverOnly.has(rawName)) {
+          const modelName = modelNames[rawName] ?? inferModelNameFromTableKey(rawName);
+          throw new Error(
+            `Table '${modelName}' is server-authoritative. ` +
+              `Use an oRPC procedure to write to it, or \`db.${rawName}.read()\` ` +
+              `to subscribe to the audit log.`,
+          );
+        }
 
-      // 2. Table lookup.
-      const table = tables[rawName]
-      if (!table) {
-        throw new Error(
-          `createLazyDb: unknown table '${rawName}'. ` +
-            `Known tables: ${Object.keys(tables).join(', ')}. ` +
-            `If this is a new model, regenerate the schema (bun prisma generate).`,
-        )
-      }
+        // 2. Table lookup.
+        const table = tables[rawName];
+        if (!table) {
+          throw new Error(
+            `createLazyDb: unknown table '${rawName}'. ` +
+              `Known tables: ${Object.keys(tables).join(", ")}. ` +
+              `If this is a new model, regenerate the schema (bun prisma generate).`,
+          );
+        }
 
-      // 3. Model-name resolution. Both inferred and explicit maps are
-      //    merged up-front; we look up here.
-      const modelName = modelNames[rawName] ?? inferModelNameFromTableKey(rawName)
+        // 3. Model-name resolution. Both inferred and explicit maps are
+        //    merged up-front; we look up here.
+        const modelName = modelNames[rawName] ?? inferModelNameFromTableKey(rawName);
 
-      // 4. React-render detection. Outside React (TanStack Router
-      //    loader, Cloudflare Worker handler, plain Node script) →
-      //    return the Promise-based loader proxy.
-      if (!insideReactRender()) {
-        return makeLoaderProxy(
-          rawName,
-          table as { where: (filter: Record<string, unknown>) => unknown },
-          onRead,
-          onSync,
-        )
-      }
+        // 4. React-render detection. Outside React (TanStack Router
+        //    loader, Cloudflare Worker handler, plain Node script) →
+        //    return the Promise-based loader proxy.
+        if (!insideReactRender()) {
+          return makeLoaderProxy(
+            rawName,
+            table as { where: (filter: Record<string, unknown>) => unknown },
+            onRead,
+            onSync,
+          );
+        }
 
-      // 5. Inside React — also require a mounted <LiveStoreProvider>
-      //    so `useTable` can find the store + oRPC client. The
-      //    `useLiveStoreConfig` hook is itself a `useContext` call,
-      //    so it participates in React's hook-order tracking.
-      const config = useLiveStoreConfig()
-      if (config === null) {
-        throw new Error(
-          `db.${rawName} accessed inside a React component but ` +
-            `<LiveStoreProvider> is not mounted. Wrap your app with ` +
-            `<LiveStoreProvider schema={...}>` +
-            (onSync ? ' oRPC={...}' : '') +
-            ` to use db.${rawName} inside React.`,
-        )
-      }
+        // 5. Inside React — also require a mounted <LiveStoreProvider>
+        //    so `useTable` can find the store + oRPC client. The
+        //    `useLiveStoreConfig` hook is itself a `useContext` call,
+        //    so it participates in React's hook-order tracking.
+        const config = useLiveStoreConfig();
+        if (config === null) {
+          throw new Error(
+            `db.${rawName} accessed inside a React component but ` +
+              `<LiveStoreProvider> is not mounted. Wrap your app with ` +
+              `<LiveStoreProvider schema={...}>` +
+              (onSync ? " oRPC={...}" : "") +
+              ` to use db.${rawName} inside React.`,
+          );
+        }
 
-      // 6. Inside React with provider → the memoised Collection from
-      //    `useTable`. `useTable`'s `useMemo` keys on `[store, name,
-      //    label, whereKey]` so re-accessing `db.todos` from an event
-      //    handler (which captures the value from render) returns the
-      //    same Collection instance — no duplicate subscriptions.
-      return useTable(modelName as Parameters<typeof useTable>[0]).collection
+        // 6. Inside React with provider → the memoised Collection from
+        //    `useTable`. `useTable`'s `useMemo` keys on `[store, name,
+        //    label, whereKey]` so re-accessing `db.todos` from an event
+        //    handler (which captures the value from render) returns the
+        //    same Collection instance — no duplicate subscriptions.
+        return useTable(modelName as Parameters<typeof useTable>[0]).collection;
+      },
     },
-  }) as Readonly<Record<string, unknown>>
-}
+  ) as Readonly<Record<string, unknown>>;
+};

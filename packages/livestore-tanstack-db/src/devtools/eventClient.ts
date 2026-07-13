@@ -12,27 +12,27 @@
  * `devtoolsOn` helpers below still work — callers should gate those too
  * if they want to tree-shake the dev overhead out of prod bundles.
  */
-import type { LiveStoreDevtoolsEvents } from './events.ts'
+import type { LiveStoreDevtoolsEvents } from "./events.ts";
 
 const getOrCreateGlobalTarget = (): EventTarget => {
-  if (typeof globalThis === 'undefined') return new EventTarget()
+  if (typeof globalThis === "undefined") return new EventTarget();
 
-  const existing = (globalThis as any).__TANSTACK_EVENT_TARGET__ as EventTarget | undefined
-  if (existing) return existing
+  const existing = (globalThis as any).__TANSTACK_EVENT_TARGET__ as EventTarget | undefined;
+  if (existing) return existing;
 
-  const target = new EventTarget()
-  ;(globalThis as any).__TANSTACK_EVENT_TARGET__ = target
+  const target = new EventTarget();
+  (globalThis as any).__TANSTACK_EVENT_TARGET__ = target;
 
   // Respond to the EventClient's connection handshake so any EventClient
   // instances in the app can complete their connect loop.
-  target.addEventListener('tanstack-connect', () => {
-    target.dispatchEvent(new CustomEvent('tanstack-connect-success'))
-  })
+  target.addEventListener("tanstack-connect", () => {
+    target.dispatchEvent(new CustomEvent("tanstack-connect-success"));
+  });
 
-  return target
-}
+  return target;
+};
 
-const globalTarget = getOrCreateGlobalTarget()
+const globalTarget = getOrCreateGlobalTarget();
 
 export const devtoolsEmit = <K extends keyof LiveStoreDevtoolsEvents & string>(
   event: K,
@@ -43,19 +43,19 @@ export const devtoolsEmit = <K extends keyof LiveStoreDevtoolsEvents & string>(
       detail: {
         type: `livestore-tanstack-db:${event}`,
         payload,
-        pluginId: 'livestore-tanstack-db',
+        pluginId: "livestore-tanstack-db",
       },
     }),
-  )
-}
+  );
+};
 
 export const devtoolsOn = <K extends keyof LiveStoreDevtoolsEvents & string>(
   event: K,
   cb: (payload: LiveStoreDevtoolsEvents[K]) => void,
 ): (() => void) => {
   const handler = (e: Event) => {
-    cb((e as CustomEvent).detail.payload)
-  }
-  globalTarget.addEventListener(`livestore-tanstack-db:${event}`, handler)
-  return () => globalTarget.removeEventListener(`livestore-tanstack-db:${event}`, handler)
-}
+    cb((e as CustomEvent).detail.payload);
+  };
+  globalTarget.addEventListener(`livestore-tanstack-db:${event}`, handler);
+  return () => globalTarget.removeEventListener(`livestore-tanstack-db:${event}`, handler);
+};

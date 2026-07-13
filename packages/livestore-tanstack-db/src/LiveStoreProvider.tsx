@@ -1,8 +1,8 @@
-import type { LiveStoreSchema } from '@livestore/livestore'
-import type React from 'react'
-import { createContext, useContext, useMemo } from 'react'
+import type { LiveStoreSchema } from "@livestore/livestore";
+import type React from "react";
+import { createContext, useContext, useMemo } from "react";
 
-import type { RpcClient } from './mutations.ts'
+import type { RpcClient } from "./mutations.ts";
 
 /**
  * The shape `LiveStoreProvider` accepts. We accept both:
@@ -19,11 +19,11 @@ import type { RpcClient } from './mutations.ts'
 export type LiveStoreProviderSchema =
   | LiveStoreSchema
   | (LiveStoreSchema & {
-      readonly tables?: Record<string, unknown>
-      readonly events?: Record<string, unknown>
-      readonly materializers?: Record<string, unknown>
-      readonly readOnly?: Record<string, unknown>
-    })
+      readonly tables?: Record<string, unknown>;
+      readonly events?: Record<string, unknown>;
+      readonly materializers?: Record<string, unknown>;
+      readonly readOnly?: Record<string, unknown>;
+    });
 
 export interface LiveStoreProviderProps {
   /**
@@ -33,7 +33,7 @@ export interface LiveStoreProviderProps {
    * models and derive `getKey` / soft-delete predicates without
    * re-importing.
    */
-  schema: LiveStoreProviderSchema
+  schema: LiveStoreProviderSchema;
   /**
    * Tier 0.6: the oRPC client used to translate TanStack DB mutations
    * into LiveStore events. When set, any
@@ -41,23 +41,23 @@ export interface LiveStoreProviderProps {
    * from this value, so consumers don't have to thread the same client
    * through every call site.
    */
-  oRPC?: RpcClient
-  children: React.ReactNode
+  oRPC?: RpcClient;
+  children: React.ReactNode;
 }
 
 export interface LiveStoreConfig {
-  schema: LiveStoreProviderSchema
-  oRPC?: RpcClient
+  schema: LiveStoreProviderSchema;
+  oRPC?: RpcClient;
   /**
    * Tables that should NOT get client-side write APIs. Read by
    * `lazyDb` and `useTable` to refuse commit handlers. Typically
    * sourced from the per-table flags in
    * `prisma/livestore.annotations.json`.
    */
-  serverOnlyTables?: ReadonlyArray<string>
+  serverOnlyTables?: ReadonlyArray<string>;
 }
 
-const LiveStoreConfigContext = createContext<LiveStoreConfig | null>(null)
+const LiveStoreConfigContext = createContext<LiveStoreConfig | null>(null);
 
 /**
  * Read the { schema, oRPC } pair passed to <LiveStoreProvider>.
@@ -66,8 +66,7 @@ const LiveStoreConfigContext = createContext<LiveStoreConfig | null>(null)
  * 0.2/0.3) use this to discover which models exist and what oRPC
  * client to write back through.
  */
-export const useLiveStoreConfig = (): LiveStoreConfig | null =>
-  useContext(LiveStoreConfigContext)
+export const useLiveStoreConfig = (): LiveStoreConfig | null => useContext(LiveStoreConfigContext);
 
 /**
  * Single import for the whole LiveStore integration tree.
@@ -83,18 +82,9 @@ export const useLiveStoreConfig = (): LiveStoreConfig | null =>
  * todo.md Tier 3.1 — when per-table collection providers land, they
  * compose inside this one.
  */
-export const LiveStoreProvider: React.FC<LiveStoreProviderProps> = ({
-  schema,
-  oRPC,
-  children,
-}) => {
-  const value = useMemo<LiveStoreConfig>(
-    () => ({ schema, oRPC }),
-    [schema, oRPC],
-  )
+export const LiveStoreProvider: React.FC<LiveStoreProviderProps> = ({ schema, oRPC, children }) => {
+  const value = useMemo<LiveStoreConfig>(() => ({ schema, oRPC }), [schema, oRPC]);
   return (
-    <LiveStoreConfigContext.Provider value={value}>
-      {children}
-    </LiveStoreConfigContext.Provider>
-  )
-}
+    <LiveStoreConfigContext.Provider value={value}>{children}</LiveStoreConfigContext.Provider>
+  );
+};

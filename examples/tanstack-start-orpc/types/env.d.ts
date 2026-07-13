@@ -4,17 +4,17 @@
 // top-level `Env` interface.
 
 interface Env {
-  DB: D1Database
-  SYNC_BACKEND_DO: DurableObjectNamespace
+  DB: D1Database;
+  SYNC_BACKEND_DO: DurableObjectNamespace;
 }
 
 // Vite ?worker / ?sharedworker imports used by LiveStore's web adapter.
-declare module '*?worker' {
-  const WorkerFactory: new () => Worker
-  export default WorkerFactory
+declare module "*?worker" {
+  const WorkerFactory: new () => Worker;
+  export default WorkerFactory;
 }
 
-declare module '*?sharedworker' {
-  const SharedWorkerFactory: new () => SharedWorker
-  export default SharedWorkerFactory
+declare module "*?sharedworker" {
+  const SharedWorkerFactory: new () => SharedWorker;
+  export default SharedWorkerFactory;
 }

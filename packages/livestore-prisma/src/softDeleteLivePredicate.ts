@@ -8,11 +8,11 @@
  * the row read to set the column to `null` on the read path.
  */
 export const softDeleteLivePredicate = (row: unknown): boolean => {
-  if (row === null || typeof row !== 'object') return true
-  const r = row as { deletedAt?: unknown; archivedAt?: unknown; isDeleted?: unknown }
+  if (row === null || typeof row !== "object") return true;
+  const r = row as { deletedAt?: unknown; archivedAt?: unknown; isDeleted?: unknown };
   return (
     r.deletedAt == null &&
     r.archivedAt == null &&
     (r.isDeleted === undefined || r.isDeleted === false)
-  )
-}
+  );
+};

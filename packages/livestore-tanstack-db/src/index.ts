@@ -15,63 +15,52 @@
  * - `LiveStoreProvider` / `useLiveStoreConfig` — React context for
  *   LiveStore configuration.
  */
-export {
-  liveStoreCollectionOptions,
-  createCollection,
-} from './liveStoreCollection.ts'
+export { liveStoreCollectionOptions, createCollection } from "./liveStoreCollection.ts";
 export type {
   LiveStoreRow,
   LiveStoreCollectionConfig,
   LiveStoreCollectionUtils,
   IsRowLive,
   CoerceRow,
-} from './liveStoreCollection.ts'
+} from "./liveStoreCollection.ts";
 
-export { createTypedTable } from './createTypedUseTable.ts'
-export type {
-  TypedTableOptions,
-  TypedTableResult,
-} from './createTypedUseTable.ts'
+export { createTypedTable } from "./createTypedUseTable.ts";
+export type { TypedTableOptions, TypedTableResult } from "./createTypedUseTable.ts";
 
-export { useTable, useTables, preloadTable, getCollection } from './useTable.ts'
+export { useTable, useTables, preloadTable, getCollection } from "./useTable.ts";
 export type {
   UseTableOptions,
   UseTableResult,
   TableName,
   RowOf,
   UseTableLiveStore,
-} from './useTable.ts'
+} from "./useTable.ts";
 
-export { useCrud } from './useCrud.ts'
-export type { CrudActions, CrudResult } from './useCrud.ts'
+export { useCrud } from "./useCrud.ts";
+export type { CrudActions, CrudResult } from "./useCrud.ts";
 
-export type { RpcClient, RpcConfig, RpcProcedure, RpcErrorContext, RpcKind } from './mutations.ts'
+export type { RpcClient, RpcConfig, RpcProcedure, RpcErrorContext, RpcKind } from "./mutations.ts";
 
-export { createORPCAdapter, createTRPCAdapter } from './rpcAdapter.ts'
-export type { CreateRpcAdapterOptions, NamespacesOf } from './rpcAdapter.ts'
+export { createORPCAdapter, createTRPCAdapter } from "./rpcAdapter.ts";
+export type { CreateRpcAdapterOptions, NamespacesOf } from "./rpcAdapter.ts";
 
-export { createLazyDb } from './lazyDb.ts'
-export type {
-  LazyDbOptions,
-  LoaderProxy,
-  OnSync,
-  SyncOp,
-} from './lazyDb.ts'
+export { createLazyDb } from "./lazyDb.ts";
+export type { LazyDbOptions, LoaderProxy, OnSync, SyncOp } from "./lazyDb.ts";
 
-export { createMutations } from './mutations.ts'
+export { createMutations } from "./mutations.ts";
 
-export { LiveStoreProvider, useLiveStoreConfig } from './LiveStoreProvider.tsx'
+export { LiveStoreProvider, useLiveStoreConfig } from "./LiveStoreProvider.tsx";
 export type {
   LiveStoreProviderProps,
   LiveStoreProviderSchema,
   LiveStoreConfig,
-} from './LiveStoreProvider.tsx'
+} from "./LiveStoreProvider.tsx";
 
-export { useJoinQuery } from './useJoinQuery.ts'
+export { useJoinQuery } from "./useJoinQuery.ts";
 
-export { getKeyFromSchema } from './getKeyFromSchema.ts'
-export { softDeleteLivePredicate } from './softDeleteLivePredicate.ts'
-export { toStandardSchemaV1 } from './standardSchema.ts'
+export { getKeyFromSchema } from "./getKeyFromSchema.ts";
+export { softDeleteLivePredicate } from "./softDeleteLivePredicate.ts";
+export { toStandardSchemaV1 } from "./standardSchema.ts";
 
 // Re-export TanStack DB query operators so consumers can import
 // everything from `livestore-tanstack-db` instead of juggling
@@ -103,4 +92,4 @@ export {
   toArray,
   materialize,
   Query,
-} from '@tanstack/react-db'
+} from "@tanstack/react-db";

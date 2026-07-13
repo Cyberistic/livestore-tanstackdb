@@ -24,47 +24,45 @@
  *
  * without threading the store through the tree.
  */
-import { useEffect } from 'react'
-import type { Store } from '@livestore/livestore'
-import type { Collection } from '@tanstack/db'
+import { useEffect } from "react";
+import type { Store } from "@livestore/livestore";
+import type { Collection } from "@tanstack/db";
 
-import { useLiveStoreDevtoolsBridge, registerCollection } from './bridge.ts'
+import { useLiveStoreDevtoolsBridge, registerCollection } from "./bridge.ts";
 
 export interface LiveStoreDevtoolsBridgeProps {
   /**
    * The LiveStore `Store` to bridge. Omit to use the module-cached
    * `getOrCreateAppStore()`.
    */
-  store?: Store<any> | null
+  store?: Store<any> | null;
 
   /**
    * Map of `modelName → collection` to register with the bridge.
    * The bridge subscribes to each collection's `status:change`
    * events so the devtools panel can show per-collection state.
    */
-  collections?: Record<string, Collection<any, string>>
+  collections?: Record<string, Collection<any, string>>;
 }
 
 // We deliberately don't depend on @livestore/adapter-web at the
 // top level — most consumers pass the store explicitly. The fallback
 // is a lazy `require()` that only runs if `store` is omitted.
-let _fallbackStore: Store<any> | null | undefined = undefined
+let _fallbackStore: Store<any> | null | undefined = undefined;
 const resolveAppStore = (): Store<any> | null => {
-  if (_fallbackStore !== undefined) return _fallbackStore
+  if (_fallbackStore !== undefined) return _fallbackStore;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require('@livestore/adapter-web') as {
-      getOrCreateAppStore?: () => Store<any> | null
-    }
+    const mod = require("@livestore/adapter-web") as {
+      getOrCreateAppStore?: () => Store<any> | null;
+    };
     _fallbackStore =
-      typeof mod.getOrCreateAppStore === 'function'
-        ? mod.getOrCreateAppStore()
-        : null
+      typeof mod.getOrCreateAppStore === "function" ? mod.getOrCreateAppStore() : null;
   } catch {
-    _fallbackStore = null
+    _fallbackStore = null;
   }
-  return _fallbackStore
-}
+  return _fallbackStore;
+};
 
 /**
  * Mount once inside the React tree, after `<StoreRegistryProvider>`.
@@ -91,16 +89,16 @@ export const LiveStoreDevtoolsBridge: React.FC<LiveStoreDevtoolsBridgeProps> = (
 }) => {
   // Resolve the store: prefer the explicit `store` prop, fall back
   // to the module-cached app store.
-  const resolvedStore = store ?? resolveAppStore()
+  const resolvedStore = store ?? resolveAppStore();
 
-  useLiveStoreDevtoolsBridge(resolvedStore)
+  useLiveStoreDevtoolsBridge(resolvedStore);
 
   useEffect(() => {
-    if (!collections) return
+    if (!collections) return;
     for (const [id, collection] of Object.entries(collections)) {
-      registerCollection(id, collection)
+      registerCollection(id, collection);
     }
-  }, [collections])
+  }, [collections]);
 
-  return null
-}
+  return null;
+};

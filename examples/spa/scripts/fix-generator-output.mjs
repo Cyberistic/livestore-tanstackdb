@@ -15,15 +15,12 @@
  * block pattern is matched and rewritten to use commas between every
  * property.
  */
-import { readFileSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
-const TARGET = join(
-  process.cwd(),
-  "prisma/generated/client-schemas/index.ts",
-)
+const TARGET = join(process.cwd(), "prisma/generated/client-schemas/index.ts");
 
-const content = readFileSync(TARGET, "utf8")
+const content = readFileSync(TARGET, "utf8");
 
 // Match the column-descriptor object literal: `{ name: "..."; type: ...; ... }`
 // Convert all `;<space>` between property values to `, ` within that block.
@@ -34,11 +31,13 @@ const content = readFileSync(TARGET, "utf8")
 const fixed = content.replace(
   /\{\s*name:\s*"[^"]+";\s*type:\s*[^,]+(?:\s*;\s*[a-zA-Z]+:\s*[^,}]+)*\s*,?\s*\}/g,
   (match) => match.replace(/;\s+/g, ", "),
-)
+);
 
 if (fixed === content) {
-  console.log("[fix-generator-output] no semicolon separators to fix — already patched or upstream fixed.")
+  console.log(
+    "[fix-generator-output] no semicolon separators to fix — already patched or upstream fixed.",
+  );
 } else {
-  writeFileSync(TARGET, fixed, "utf8")
-  console.log("[fix-generator-output] fixed semicolon-separated object props in", TARGET)
+  writeFileSync(TARGET, fixed, "utf8");
+  console.log("[fix-generator-output] fixed semicolon-separated object props in", TARGET);
 }

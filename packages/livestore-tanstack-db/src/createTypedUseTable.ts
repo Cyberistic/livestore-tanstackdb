@@ -24,33 +24,33 @@
  * // collection: Collection<Todo, string>
  * ```
  */
-import { createCollection } from '@tanstack/db'
-import type { Collection } from '@tanstack/db'
-import type { Queryable, Store } from '@livestore/livestore'
-import { useMemo } from 'react'
+import { createCollection } from "@tanstack/db";
+import type { Collection } from "@tanstack/db";
+import type { Queryable, Store } from "@livestore/livestore";
+import { useMemo } from "react";
 
-import { liveStoreCollectionOptions, type LiveStoreRow } from './liveStoreCollection.ts'
+import { liveStoreCollectionOptions } from "./liveStoreCollection.ts";
 
 export interface TypedTableOptions<TRow> {
   /** Unique collection id (used by TanStack DB for devtools/logging). */
-  id: string
+  id: string;
   /** LiveStore `Store` factory (e.g. `useAppStore`). */
-  store: () => Store<any>
+  store: () => Store<any>;
   /** The LiveStore queryable for this table. */
-  query: Queryable<ReadonlyArray<Record<string, unknown> & { id: string }>>
+  query: Queryable<ReadonlyArray<Record<string, unknown> & { id: string }>>;
   /** `true` for server-authoritative (audit logs, etc.). */
-  isReadOnly?: boolean
+  isReadOnly?: boolean;
   /** Commit handlers — `store` is injected by the factory. */
   commits?: {
-    commitInsert?: (row: TRow, store: Store<any>) => void
-    commitUpdate?: (original: TRow, changes: Partial<TRow>, store: Store<any>) => void
-    commitDelete?: (row: TRow, store: Store<any>) => void
-  }
+    commitInsert?: (row: TRow, store: Store<any>) => void;
+    commitUpdate?: (original: TRow, changes: Partial<TRow>, store: Store<any>) => void;
+    commitDelete?: (row: TRow, store: Store<any>) => void;
+  };
 }
 
 export interface TypedTableResult<TRow extends object> {
-  collection: Collection<TRow, string>
-  isReadOnly: boolean
+  collection: Collection<TRow, string>;
+  isReadOnly: boolean;
 }
 
 /**
@@ -63,7 +63,7 @@ export const createTypedTable = <TRow extends object>(
   options: TypedTableOptions<TRow>,
 ): (() => TypedTableResult<TRow>) => {
   const useTypedTable = (): TypedTableResult<TRow> => {
-    const storeInstance = options.store()
+    const storeInstance = options.store();
 
     const collection = useMemo(
       () =>
@@ -78,8 +78,8 @@ export const createTypedTable = <TRow extends object>(
               ? {
                   onInsert: async ({ transaction }) => {
                     for (const mutation of transaction.mutations) {
-                      const row = mutation.modified as unknown as TRow
-                      options.commits!.commitInsert!(row, storeInstance)
+                      const row = mutation.modified as unknown as TRow;
+                      options.commits!.commitInsert!(row, storeInstance);
                     }
                   },
                 }
@@ -88,9 +88,9 @@ export const createTypedTable = <TRow extends object>(
               ? {
                   onUpdate: async ({ transaction }) => {
                     for (const mutation of transaction.mutations) {
-                      const original = mutation.original as unknown as TRow
-                      const changes = mutation.changes as unknown as Partial<TRow>
-                      options.commits!.commitUpdate!(original, changes, storeInstance)
+                      const original = mutation.original as unknown as TRow;
+                      const changes = mutation.changes as unknown as Partial<TRow>;
+                      options.commits!.commitUpdate!(original, changes, storeInstance);
                     }
                   },
                 }
@@ -99,8 +99,8 @@ export const createTypedTable = <TRow extends object>(
               ? {
                   onDelete: async ({ transaction }) => {
                     for (const mutation of transaction.mutations) {
-                      const row = mutation.original as unknown as TRow
-                      options.commits!.commitDelete!(row, storeInstance)
+                      const row = mutation.original as unknown as TRow;
+                      options.commits!.commitDelete!(row, storeInstance);
                     }
                   },
                 }
@@ -108,13 +108,13 @@ export const createTypedTable = <TRow extends object>(
           }),
         ),
       [storeInstance, options.query, options.isReadOnly],
-    )
+    );
 
     return {
       collection: collection as unknown as Collection<TRow, string>,
       isReadOnly: options.isReadOnly ?? false,
-    }
-  }
+    };
+  };
 
-  return useTypedTable
-}
+  return useTypedTable;
+};

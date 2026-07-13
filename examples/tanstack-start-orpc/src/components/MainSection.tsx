@@ -1,13 +1,13 @@
-import { useCallback } from 'react'
-import { useLiveQuery } from '@tanstack/react-db'
+import { useCallback } from "react";
+import { useLiveQuery } from "@tanstack/react-db";
 
-import { useTable } from 'livestore-tanstack-db'
+import { useTable } from "livestore-tanstack-db";
 
-import { uiState$ } from '../livestore/queries.ts'
-import { rpcConfig } from '../livestore/schema.ts'
-import { useAppStore } from '../livestore/store.ts'
-import { rpcPosts } from '../lib/orpc-client.ts'
-import { TodoItem } from './TodoItem.tsx'
+import { uiState$ } from "../livestore/queries.ts";
+import { rpcConfig } from "../livestore/schema.ts";
+import { useAppStore } from "../livestore/store.ts";
+import { rpcPosts } from "../lib/orpc-client.ts";
+import { TodoItem } from "./TodoItem.tsx";
 
 /**
  * Main visible section of the app — renders the active todos, applies
@@ -28,47 +28,47 @@ import { TodoItem } from './TodoItem.tsx'
  * no explicit `liveStore` option (Tier 3.1).
  */
 export const MainSection = () => {
-  const store = useAppStore()
+  const store = useAppStore();
   const { filter } = store.useQuery(uiState$) as unknown as {
-    filter: 'all' | 'active' | 'completed'
-  }
+    filter: "all" | "active" | "completed";
+  };
 
   const where =
-    filter === 'active'
+    filter === "active"
       ? { completed: false }
-      : filter === 'completed'
+      : filter === "completed"
         ? { completed: true }
-        : undefined
+        : undefined;
 
-  const { collection: todosCollection } = useTable('Todo', {
+  const { collection: todosCollection } = useTable("Todo", {
     rpc: { client: rpcPosts, config: rpcConfig },
     where,
-  })
+  });
 
   const { data: todos } = useLiveQuery(
     (q) =>
       q
         .from({ todo: todosCollection })
         .select(({ todo }) => todo)
-        .orderBy(({ todo }) => todo.createdAt, 'desc'),
+        .orderBy(({ todo }) => todo.createdAt, "desc"),
     [todosCollection],
-  )
+  );
 
   const onToggle = useCallback(
     (id: string) => {
       todosCollection.update(id, (draft) => {
-        draft.completed = !draft.completed
-      })
+        draft.completed = !draft.completed;
+      });
     },
     [todosCollection],
-  )
+  );
 
   const onDelete = useCallback(
     (id: string) => {
-      todosCollection.delete(id)
+      todosCollection.delete(id);
     },
     [todosCollection],
-  )
+  );
 
   return (
     <section className="main">
@@ -76,12 +76,12 @@ export const MainSection = () => {
         {(todos ?? []).map((todo) => (
           <TodoItem
             key={todo.id}
-            todo={todo as unknown as Parameters<typeof TodoItem>[0]['todo']}
+            todo={todo as unknown as Parameters<typeof TodoItem>[0]["todo"]}
             onToggle={onToggle}
             onDelete={onDelete}
           />
         ))}
       </ul>
     </section>
-  )
-}
+  );
+};

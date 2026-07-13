@@ -1,13 +1,13 @@
-import { createORPCClient } from '@orpc/client'
-import { RPCLink } from '@orpc/client/fetch'
-import type { RouterClient } from '@orpc/server'
-import { createRouterClient } from '@orpc/server'
-import { createIsomorphicFn } from '@tanstack/react-start'
-import { getRequestHeaders } from '@tanstack/react-start/server'
+import { createORPCClient } from "@orpc/client";
+import { RPCLink } from "@orpc/client/fetch";
+import type { RouterClient } from "@orpc/server";
+import { createRouterClient } from "@orpc/server";
+import { createIsomorphicFn } from "@tanstack/react-start";
+import { getRequestHeaders } from "@tanstack/react-start/server";
 
-import { createORPCAdapter } from 'livestore-tanstack-db'
+import { createORPCAdapter } from "livestore-tanstack-db";
 
-import { router } from './orpc.ts'
+import { router } from "./orpc.ts";
 
 /**
  * Typed isomorphic oRPC client used by `useTable` / `useCrud` and direct
@@ -29,19 +29,22 @@ import { router } from './orpc.ts'
  *   `orpc.posts.bulkSeed({ rows })`.
  */
 const getORPCClient = createIsomorphicFn()
-  .server((): RouterClient<typeof router> => createRouterClient(router, {
-    context: async () => ({
-      headers: getRequestHeaders(),
-    }),
-  }))
+  .server(
+    (): RouterClient<typeof router> =>
+      createRouterClient(router, {
+        context: async () => ({
+          headers: getRequestHeaders(),
+        }),
+      }),
+  )
   .client((): RouterClient<typeof router> => {
     const link = new RPCLink({
       url: `${window.location.origin}/api/rpc`,
-    })
-    return createORPCClient(link)
-  })
+    });
+    return createORPCClient(link);
+  });
 
-export const orpc: RouterClient<typeof router> = getORPCClient()
+export const orpc: RouterClient<typeof router> = getORPCClient();
 
 /**
  * `posts.*` namespace adapted into the `RpcClient` shape that
@@ -49,4 +52,4 @@ export const orpc: RouterClient<typeof router> = getORPCClient()
  * `as unknown as RpcClient` cast and validates that every leaf is a
  * callable oRPC procedure.
  */
-export const rpcPosts = createORPCAdapter(orpc, { namespaces: ['posts'], router })
+export const rpcPosts = createORPCAdapter(orpc, { namespaces: ["posts"], router });

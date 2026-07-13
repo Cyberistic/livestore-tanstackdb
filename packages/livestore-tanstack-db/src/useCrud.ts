@@ -1,8 +1,8 @@
-import { useMemo } from 'react'
-import type { Collection, WritableDeep } from '@tanstack/db'
+import { useMemo } from "react";
+import type { Collection, WritableDeep } from "@tanstack/db";
 
-import type { LiveStoreRow } from './liveStoreCollection.ts'
-import { useTable, type UseTableOptions, type TableName } from './useTable.ts'
+import type { LiveStoreRow } from "./liveStoreCollection.ts";
+import { useTable, type UseTableOptions, type TableName } from "./useTable.ts";
 
 // ─────────────────────────────────────────────────────────────────────
 // Public types
@@ -29,21 +29,18 @@ import { useTable, type UseTableOptions, type TableName } from './useTable.ts'
  *   transaction.
  */
 export interface CrudActions<TRow extends LiveStoreRow> {
-  create: (input: Omit<TRow, 'id'> & { id?: string }) => void
-  bulkInsert: (rows: ReadonlyArray<Omit<TRow, 'id'> & { id?: string }>) => void
-  bulkUpsert: (rows: ReadonlyArray<Omit<TRow, 'id'> & { id?: string }>) => void
-  update: (
-    id: string,
-    changes: Partial<TRow> | ((draft: TRow) => void),
-  ) => void
-  remove: (id: string) => void
+  create: (input: Omit<TRow, "id"> & { id?: string }) => void;
+  bulkInsert: (rows: ReadonlyArray<Omit<TRow, "id"> & { id?: string }>) => void;
+  bulkUpsert: (rows: ReadonlyArray<Omit<TRow, "id"> & { id?: string }>) => void;
+  update: (id: string, changes: Partial<TRow> | ((draft: TRow) => void)) => void;
+  remove: (id: string) => void;
 }
 
 /** Tuple shape returned by {@link useCrud}. */
 export type CrudResult<TRow extends LiveStoreRow = LiveStoreRow> = [
   Collection<TRow, string>,
   CrudActions<TRow>,
-]
+];
 
 // ─────────────────────────────────────────────────────────────────────
 // React hook
@@ -76,53 +73,48 @@ export const useCrud = <TRow extends LiveStoreRow = LiveStoreRow>(
   name: TableName,
   options: UseTableOptions<TableName> = {},
 ): CrudResult<TRow> => {
-  const { collection } = useTable(name, options)
+  const { collection } = useTable(name, options);
 
   const actions = useMemo<CrudActions<TRow>>(() => {
-    const coll = collection as unknown as Collection<TRow, string>
+    const coll = collection as unknown as Collection<TRow, string>;
 
     // Tier 1.7 — fill missing ids in one pass so the bulk insert can be
     // a single `collection.insert(rows)` call (the optimistic handler
     // groups them into one transaction and one `v1.<Model>BulkUpserted`
     // event when the schema declares it).
-    const fillMissingIds = (
-      rows: ReadonlyArray<Omit<TRow, 'id'> & { id?: string }>,
-    ): TRow[] =>
+    const fillMissingIds = (rows: ReadonlyArray<Omit<TRow, "id"> & { id?: string }>): TRow[] =>
       rows.map((row) => {
-        const id = row.id ?? crypto.randomUUID()
-        return { ...row, id } as unknown as TRow
-      })
+        const id = row.id ?? crypto.randomUUID();
+        return { ...row, id } as unknown as TRow;
+      });
 
     return {
       create: (input) => {
-        const id = input.id ?? crypto.randomUUID()
-        coll.insert({ ...input, id } as unknown as TRow)
+        const id = input.id ?? crypto.randomUUID();
+        coll.insert({ ...input, id } as unknown as TRow);
       },
       bulkInsert: (rows) => {
-        if (rows.length === 0) return
-        coll.insert(fillMissingIds(rows) as unknown as TRow)
+        if (rows.length === 0) return;
+        coll.insert(fillMissingIds(rows) as unknown as TRow);
       },
       bulkUpsert: (rows) => {
-        if (rows.length === 0) return
-        coll.insert(fillMissingIds(rows) as unknown as TRow)
+        if (rows.length === 0) return;
+        coll.insert(fillMissingIds(rows) as unknown as TRow);
       },
       update: (id, changes) => {
-        if (typeof changes === 'function') {
-          coll.update(
-            id,
-            changes as unknown as (draft: WritableDeep<TRow>) => void,
-          )
-          return
+        if (typeof changes === "function") {
+          coll.update(id, changes as unknown as (draft: WritableDeep<TRow>) => void);
+          return;
         }
         coll.update(id, (draft: WritableDeep<TRow>) => {
-          Object.assign(draft as object, changes as object)
-        })
+          Object.assign(draft as object, changes as object);
+        });
       },
       remove: (id) => {
-        coll.delete(id)
+        coll.delete(id);
       },
-    }
-  }, [collection])
+    };
+  }, [collection]);
 
-  return [collection as unknown as Collection<TRow, string>, actions]
-}
+  return [collection as unknown as Collection<TRow, string>, actions];
+};

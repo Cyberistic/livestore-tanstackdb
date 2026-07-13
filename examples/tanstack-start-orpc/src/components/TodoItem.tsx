@@ -1,4 +1,4 @@
-import type { TodoRow } from './types.ts'
+import type { TodoRow } from "./types.ts";
 
 /**
  * Single row in the todo list — checkbox toggle + label + destroy
@@ -7,14 +7,14 @@ import type { TodoRow } from './types.ts'
  * collection handles the commit handlers).
  */
 export interface TodoItemProps {
-  todo: TodoRow
-  onToggle: (id: string) => void
-  onDelete: (id: string) => void
+  todo: TodoRow;
+  onToggle: (id: string) => void;
+  onDelete: (id: string) => void;
 }
 
 export const TodoItem = ({ todo, onToggle, onDelete }: TodoItemProps) => {
   return (
-    <li className={todo.completed ? 'completed' : ''}>
+    <li className={todo.completed ? "completed" : ""}>
       <div className="view">
         <input
           type="checkbox"
@@ -23,12 +23,8 @@ export const TodoItem = ({ todo, onToggle, onDelete }: TodoItemProps) => {
           onChange={() => onToggle(todo.id)}
         />
         <label>{todo.text}</label>
-        <button
-          type="button"
-          className="destroy"
-          onClick={() => onDelete(todo.id)}
-        />
+        <button type="button" className="destroy" onClick={() => onDelete(todo.id)} />
       </div>
     </li>
-  )
-}
+  );
+};

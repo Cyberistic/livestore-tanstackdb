@@ -9,8 +9,8 @@ backend.
 This template is meant to be **copied into a project that already has**:
 
 - A working `prisma/schema.prisma` (the sync backend's `onPush` writes
-  to a table *you* define in that schema — see *Adapting the worker
-  entry* below)
+  to a table _you_ define in that schema — see _Adapting the worker
+  entry_ below)
 - A `src/cf-worker/index.ts` worker entry that wraps
   `@livestore/sync-cf/cf-worker`
 - A `package.json` with `deploy`, `db:generate`, `db:migrate` scripts
@@ -18,22 +18,22 @@ This template is meant to be **copied into a project that already has**:
 
 ## Files
 
-| File | Purpose |
-|------|---------|
-| `alchemy.run.ts.template`  | Handlebars-substituted alchemy stack — run `sed` to render |
-| `wrangler.toml.template`   | Handlebars-substituted wrangler config — run `sed` to render |
-| `scripts/deploy.sh`        | One-shot deploy: install → generate → migrate → deploy |
+| File                      | Purpose                                                      |
+| ------------------------- | ------------------------------------------------------------ |
+| `alchemy.run.ts.template` | Handlebars-substituted alchemy stack — run `sed` to render   |
+| `wrangler.toml.template`  | Handlebars-substituted wrangler config — run `sed` to render |
+| `scripts/deploy.sh`       | One-shot deploy: install → generate → migrate → deploy       |
 
 ## Placeholders
 
 Both `*.template` files use the same placeholders:
 
-| Placeholder             | Used in                              | Default suggestion            |
-|-------------------------|--------------------------------------|------------------------------|
-| `{{AppName}}`           | alchemy app name + D1 + DO IDs       | `myapp`                      |
-| `{{WorkerName}}`        | worker name + bundle directory       | `${AppName}_site` (see note) |
-| `{{DbName}}`            | D1 database name + binding label     | `${AppName}-db`              |
-| `{{DomainPrefix}}`      | D1 `primaryLocationHint`             | `wnam`                       |
+| Placeholder             | Used in                              | Default suggestion                            |
+| ----------------------- | ------------------------------------ | --------------------------------------------- |
+| `{{AppName}}`           | alchemy app name + D1 + DO IDs       | `myapp`                                       |
+| `{{WorkerName}}`        | worker name + bundle directory       | `${AppName}_site` (see note)                  |
+| `{{DbName}}`            | D1 database name + binding label     | `${AppName}-db`                               |
+| `{{DomainPrefix}}`      | D1 `primaryLocationHint`             | `wnam`                                        |
 | `{{SchemaImportsPath}}` | Path to the prisma-generated schemas | `../prisma/generated/client-schemas/index.ts` |
 
 > **Worker name hyphen gotcha.** The `@cloudflare/vite-plugin` emits
@@ -82,7 +82,7 @@ bash scripts/deploy.sh
 This template is known-good against:
 
 | Package                     | Version  |
-|-----------------------------|----------|
+| --------------------------- | -------- |
 | `alchemy`                   | `0.93.x` |
 | `@livestore/*`              | `0.4.0`  |
 | `@cloudflare/vite-plugin`   | `1.13.x` |
@@ -137,11 +137,11 @@ export default {
 
 ### Bindings
 
-| Binding          | Type                    | Where it comes from                                                                 |
-|------------------|-------------------------|-------------------------------------------------------------------------------------|
-| `SYNC_BACKEND_DO`| `DurableObjectNamespace`| `alchemy.run.ts` → `DurableObjectNamespace("sync-backend", { className: "SyncBackendDO", sqlite: true })` |
-| `DB`             | `D1Database`            | `alchemy.run.ts` → `D1Database("{{DbName}}", ...)`                                   |
-| `ASSETS`         | `Fetcher`               | Alchemy auto-injects when `assets: "./dist/client"` is set on the `Vite` resource   |
+| Binding           | Type                     | Where it comes from                                                                                       |
+| ----------------- | ------------------------ | --------------------------------------------------------------------------------------------------------- |
+| `SYNC_BACKEND_DO` | `DurableObjectNamespace` | `alchemy.run.ts` → `DurableObjectNamespace("sync-backend", { className: "SyncBackendDO", sqlite: true })` |
+| `DB`              | `D1Database`             | `alchemy.run.ts` → `D1Database("{{DbName}}", ...)`                                                        |
+| `ASSETS`          | `Fetcher`                | Alchemy auto-injects when `assets: "./dist/client"` is set on the `Vite` resource                         |
 
 ### `env.DB` — the audit log
 

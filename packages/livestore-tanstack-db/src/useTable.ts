@@ -1,28 +1,31 @@
-import { queryDb } from '@livestore/livestore'
-import type { Queryable, Store } from '@livestore/livestore'
-import { createCollection } from '@tanstack/db'
-import type { Collection } from '@tanstack/db'
-import { useMemo } from 'react'
+import { queryDb } from "@livestore/livestore";
+import type { Queryable, Store } from "@livestore/livestore";
+import { createCollection } from "@tanstack/db";
+import type { Collection } from "@tanstack/db";
+import { useMemo } from "react";
 
-import { liveStoreCollectionOptions, type LiveStoreRow } from './liveStoreCollection.ts'
-import type { MutationCallbacks, RpcClient, RpcConfig, RpcErrorContext } from './mutations.ts'
-import { createMutations } from './mutations.ts'
-import { useLiveStoreConfig } from './LiveStoreProvider.tsx'
-import { getKeyFromSchema } from './getKeyFromSchema.ts'
+import { liveStoreCollectionOptions, type LiveStoreRow } from "./liveStoreCollection.ts";
+import type { MutationCallbacks, RpcClient, RpcConfig, RpcErrorContext } from "./mutations.ts";
+import { createMutations } from "./mutations.ts";
+import { useLiveStoreConfig } from "./LiveStoreProvider.tsx";
+import { getKeyFromSchema } from "./getKeyFromSchema.ts";
 
 // ─────────────────────────────────────────────────────────────────────
 // Public types
 // ─────────────────────────────────────────────────────────────────────
 
 /** PascalCase model name (or client-document camelCase). Generic — the consumer's tables define the actual values. */
-export type TableName = string
+export type TableName = string;
 
 /**
  * Row type for a given table. Derived from the consumer's LiveStore
  * table map at the call site.
  */
-export type RowOf<TName extends string, T extends Record<string, any>> =
-  T[TName] extends { readonly Type: infer R } ? R : LiveStoreRow
+export type RowOf<TName extends string, T extends Record<string, any>> = T[TName] extends {
+  readonly Type: infer R;
+}
+  ? R
+  : LiveStoreRow;
 
 // ─────────────────────────────────────────────────────────────────────
 // Live store context — read from <LiveStoreProvider>
@@ -33,22 +36,22 @@ export type RowOf<TName extends string, T extends Record<string, any>> =
  * Consumers populate this via `<LiveStoreProvider schema={...} oRPC={...}>`.
  */
 export interface UseTableLiveStore {
-  store: Store<any>
-  tables: Record<string, any>
-  events: Record<string, any>
-  schema: unknown
+  store: Store<any>;
+  tables: Record<string, any>;
+  events: Record<string, any>;
+  schema: unknown;
   /**
    * Tier 0.6 — optional oRPC client. Either set on
    * <LiveStoreProvider oRPC={...}> (then `useTable` auto-derives
    * `rpc.client` from it) or supplied explicitly alongside a
    * hand-rolled `liveStore` option.
    */
-  oRPC?: RpcClient
+  oRPC?: RpcClient;
 }
 
 const useLiveStore = (): UseTableLiveStore | null => {
-  const config = useLiveStoreConfig()
-  if (!config) return null
+  const config = useLiveStoreConfig();
+  if (!config) return null;
   // The consumer's `createLiveStoreDb` output is stored on the
   // LiveStoreProvider's `schema` prop. The package's `useTable` reads
   // tables/events/store from the same place. The optional `oRPC`
@@ -57,45 +60,38 @@ const useLiveStore = (): UseTableLiveStore | null => {
   return {
     ...(config.schema as unknown as UseTableLiveStore),
     oRPC: config.oRPC,
-  }
-}
+  };
+};
 
 // ─────────────────────────────────────────────────────────────────────
 // Pure helpers (no module-level state)
 // ─────────────────────────────────────────────────────────────────────
 
-const lcFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1)
-const ucFirst = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+const lcFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1);
+const ucFirst = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-const syncedEventFor = (
-  name: TableName,
-  events: Record<string, any>,
-  action: string,
-) => {
-  const key = `${lcFirst(name)}${action}`
-  const e = (events as Record<string, any>)[key]
+const syncedEventFor = (name: TableName, events: Record<string, any>, action: string) => {
+  const key = `${lcFirst(name)}${action}`;
+  const e = (events as Record<string, any>)[key];
   if (!e) {
     throw new Error(
       `useTable(${name}): no \`${key}\` event found in schema. ` +
         `Did createLiveStoreDb's includeCreated/includeDeleted flags disable it? ` +
         `Or did you forget to add a \`booleanColumns\` for per-field events?`,
-    )
+    );
   }
-  return e
-}
+  return e;
+};
 
-const clientDocSetEventFor = (
-  name: TableName,
-  events: Record<string, any>,
-) => {
-  const e = (events as Record<string, any>)[`${name}Set`]
+const clientDocSetEventFor = (name: TableName, events: Record<string, any>) => {
+  const e = (events as Record<string, any>)[`${name}Set`];
   if (!e) {
     throw new Error(
       `useTable(${name}): no \`${name}Set\` event found in schema. Did the table get declared as a client document in createLiveStoreDb?`,
-    )
+    );
   }
-  return e
-}
+  return e;
+};
 
 /**
  * Walk the schema's property signatures and find a soft-delete column.
@@ -106,37 +102,34 @@ const clientDocSetEventFor = (
  * for every `useTable(name)` call.
  */
 const softDeleteColumnFromSchema = (schema: unknown): string | null => {
-  if (!schema || typeof schema !== 'object') return null
-  const fields = (schema as { readonly fields?: Readonly<Record<string, unknown>> }).fields
-  if (!fields) return null
+  if (!schema || typeof schema !== "object") return null;
+  const fields = (schema as { readonly fields?: Readonly<Record<string, unknown>> }).fields;
+  if (!fields) return null;
   for (const [name, sig] of Object.entries(fields)) {
-    if (!/(deleted|archived|removed)/i.test(name)) continue
-    const ast = (sig as { readonly ast?: unknown }).ast
-    if (!ast) continue
-    const tag = (ast as { readonly _tag?: string })._tag
-    if (tag !== 'Union') continue
-    const types = (ast as { readonly types?: ReadonlyArray<unknown> }).types
-    if (!Array.isArray(types)) continue
+    if (!/(deleted|archived|removed)/i.test(name)) continue;
+    const ast = (sig as { readonly ast?: unknown }).ast;
+    if (!ast) continue;
+    const tag = (ast as { readonly _tag?: string })._tag;
+    if (tag !== "Union") continue;
+    const types = (ast as { readonly types?: ReadonlyArray<unknown> }).types;
+    if (!Array.isArray(types)) continue;
     const hasNull = types.some((t) => {
-      const tTag = (t as { readonly _tag?: string })._tag
-      return (
-        tTag === 'Literal' &&
-        (t as { readonly literal?: unknown }).literal === null
-      )
-    })
-    if (hasNull) return name
+      const tTag = (t as { readonly _tag?: string })._tag;
+      return tTag === "Literal" && (t as { readonly literal?: unknown }).literal === null;
+    });
+    if (hasNull) return name;
   }
-  return null
-}
+  return null;
+};
 
 /**
  * Build a default `where` predicate from the schema's soft-delete column.
  * Returns `{}` (no filter) when no soft-delete column is detected.
  */
 const defaultWhereFromSchema = (schema: unknown): Record<string, unknown> => {
-  const col = softDeleteColumnFromSchema(schema)
-  return col ? { [col]: null } : {}
-}
+  const col = softDeleteColumnFromSchema(schema);
+  return col ? { [col]: null } : {};
+};
 
 /**
  * Build a `getKey` function from the schema's primary-key column.
@@ -150,26 +143,22 @@ const getKeyFromTable = (schema: unknown): ((row: LiveStoreRow) => string) => {
   // walker tolerates `null` / non-schema inputs and falls back to a
   // `row.id` lookup.
   try {
-    return getKeyFromSchema<LiveStoreRow>(schema as Parameters<typeof getKeyFromSchema>[0])
+    return getKeyFromSchema<LiveStoreRow>(schema as Parameters<typeof getKeyFromSchema>[0]);
   } catch {
     // No primary key found — fall back to `row.id` for compatibility.
-    return (row: LiveStoreRow) => (row as unknown as { id: string }).id
+    return (row: LiveStoreRow) => (row as unknown as { id: string }).id;
   }
-}
+};
 
-const makeCommitInsert = (
-  store: Store<any>,
-  name: TableName,
-  events: Record<string, any>,
-) => {
-  const e = syncedEventFor(name, events, 'Created')
+const makeCommitInsert = (store: Store<any>, name: TableName, events: Record<string, any>) => {
+  const e = syncedEventFor(name, events, "Created");
   // Takes a raw row (not `{ row }`) — matches the shape of
   // `MutationCallbacks['commitInsert']` and the loop in `useTable`
   // that passes `mutation.modified` directly.
   return (row: LiveStoreRow) => {
-    store.commit(e(row))
-  }
-}
+    store.commit(e(row));
+  };
+};
 
 /**
  * Tier 1.7 — bulk insert. Emits a single `v1.<Model>BulkUpserted` event
@@ -180,21 +169,17 @@ const makeCommitBulkInsert = (
   store: Store<any>,
   name: TableName,
   events: Record<string, any>,
-): MutationCallbacks['commitBulkInsert'] | null => {
-  const modelPrefix = lcFirst(name)
-  const e = (events as Record<string, any>)[`${modelPrefix}BulkUpserted`]
-  if (!e) return null
+): MutationCallbacks["commitBulkInsert"] | null => {
+  const modelPrefix = lcFirst(name);
+  const e = (events as Record<string, any>)[`${modelPrefix}BulkUpserted`];
+  if (!e) return null;
   return (rows) => {
-    store.commit(e({ rows }))
-  }
-}
+    store.commit(e({ rows }));
+  };
+};
 
-const makeCommitDelete = (
-  store: Store<any>,
-  name: TableName,
-  events: Record<string, any>,
-) => {
-  const e = syncedEventFor(name, events, 'Deleted')
+const makeCommitDelete = (store: Store<any>, name: TableName, events: Record<string, any>) => {
+  const e = syncedEventFor(name, events, "Deleted");
   // Takes the raw row — `commitDelete` in `MutationCallbacks` is
   // `(row) => void`, and the caller passes `mutation.original` directly.
   // We extract `id` and append `deletedAt` (soft-delete) inside the event.
@@ -204,90 +189,84 @@ const makeCommitDelete = (
         id: (row as { id: string }).id,
         deletedAt: new Date(),
       } as unknown as Parameters<typeof e>[0]),
-    )
-  }
-}
+    );
+  };
+};
 
-const makeCommitUpdate = (
-  store: Store<any>,
-  name: TableName,
-  events: Record<string, any>,
-) => {
+const makeCommitUpdate = (store: Store<any>, name: TableName, events: Record<string, any>) => {
   // Auto-detect per-field boolean toggles and emit Completed/Uncompleted
   // events (mirrors `createMutations` in mutations.ts). For other updates
   // we emit `<model>Upserted` if the schema has one. Callers can override
   // `commitUpdate` in the options to take full control.
-  const modelPrefix = lcFirst(name)
+  const modelPrefix = lcFirst(name);
   return (original: LiveStoreRow, changes: Record<string, unknown>) => {
-    const id = ((changes as { id?: unknown }).id ??
-      (original as { id: unknown }).id) as string
-    const merged = { ...original, ...changes }
+    const id = ((changes as { id?: unknown }).id ?? (original as { id: unknown }).id) as string;
+    const merged = { ...original, ...changes };
 
-    const changeEntries = Object.entries(changes as Record<string, unknown>)
+    const changeEntries = Object.entries(changes as Record<string, unknown>);
     const onlyBooleans =
-      changeEntries.length > 0 &&
-      changeEntries.every(([, v]) => typeof v === 'boolean')
+      changeEntries.length > 0 && changeEntries.every(([, v]) => typeof v === "boolean");
 
     if (onlyBooleans) {
-      for (const [field, value] of changeEntries) {
-        if (typeof value !== 'boolean') continue
-        const suffix = value ? 'Completed' : 'Uncompleted'
+for (const [field, value] of changeEntries) {
+        if (typeof value !== "boolean") continue;
         // Match `createLiveStoreDb`'s `eventSuffixesFor`: a field whose
         // PascalCase form already ends in "Completed" emits just
         // "Completed" (no doubling), e.g. `completed` → `todoCompleted`
-        // not `todoCompletedCompleted`.
-        const cap = ucFirst(field)
-        const onKey =
-          cap.endsWith('Completed') ? `${modelPrefix}Completed` : `${modelPrefix}${cap}Completed`
-        const offKey =
-          cap.endsWith('Completed') ? `${modelPrefix}Uncompleted` : `${modelPrefix}${cap}Uncompleted`
-        const e = (events as Record<string, any>)[value ? onKey : offKey]
-        if (e) store.commit(e({ id }))
+        // not `todoCompletedCompleted".
+        const cap = ucFirst(field);
+        const onKey = cap.endsWith("Completed")
+          ? `${modelPrefix}Completed`
+          : `${modelPrefix}${cap}Completed`;
+        const offKey = cap.endsWith("Completed")
+          ? `${modelPrefix}Uncompleted`
+          : `${modelPrefix}${cap}Uncompleted`;
+        const e = (events as Record<string, any>)[value ? onKey : offKey];
+        if (e) store.commit(e({ id }));
       }
-      return
+      return;
     }
 
-    const upsertKey = `${modelPrefix}Upserted`
-    const upserted = (events as Record<string, any>)[upsertKey]
-    if (upserted) store.commit(upserted({ row: merged }))
-  }
-}
+    const upsertKey = `${modelPrefix}Upserted`;
+    const upserted = (events as Record<string, any>)[upsertKey];
+    if (upserted) store.commit(upserted({ row: merged }));
+  };
+};
 
 const buildCommitCallbacks = (
   store: Store<any>,
   name: TableName,
   events: Record<string, any>,
 ): {
-  commitInsert?: MutationCallbacks['commitInsert']
-  commitBulkInsert?: MutationCallbacks['commitBulkInsert']
-  commitUpdate?: MutationCallbacks['commitUpdate']
-  commitDelete?: MutationCallbacks['commitDelete']
+  commitInsert?: MutationCallbacks["commitInsert"];
+  commitBulkInsert?: MutationCallbacks["commitBulkInsert"];
+  commitUpdate?: MutationCallbacks["commitUpdate"];
+  commitDelete?: MutationCallbacks["commitDelete"];
 } => {
   if (!(events as Record<string, any>)[`${name}Set`]) {
     // Synced table — has Created/Deleted events
     const base: {
-      commitInsert: MutationCallbacks['commitInsert']
-      commitDelete: MutationCallbacks['commitDelete']
-      commitUpdate: MutationCallbacks['commitUpdate']
-      commitBulkInsert?: MutationCallbacks['commitBulkInsert']
+      commitInsert: MutationCallbacks["commitInsert"];
+      commitDelete: MutationCallbacks["commitDelete"];
+      commitUpdate: MutationCallbacks["commitUpdate"];
+      commitBulkInsert?: MutationCallbacks["commitBulkInsert"];
     } = {
       commitInsert: makeCommitInsert(store, name, events),
       commitDelete: makeCommitDelete(store, name, events),
       commitUpdate: makeCommitUpdate(store, name, events),
-    }
-    const bulk = makeCommitBulkInsert(store, name, events)
-    if (bulk) base.commitBulkInsert = bulk
-    return base
+    };
+    const bulk = makeCommitBulkInsert(store, name, events);
+    if (bulk) base.commitBulkInsert = bulk;
+    return base;
   }
   // Client document — has a `set` event
   return {
     commitInsert: makeCommitInsert(store, name, events),
     commitUpdate: (input: { id: string; changes: Record<string, unknown> }) => {
-
-      store.commit(clientDocSetEventFor(name, events)({ id: input.id, value: input.changes }))
+      store.commit(clientDocSetEventFor(name, events)({ id: input.id, value: input.changes }));
     },
-  }
-}
+  };
+};
 
 const buildQuery = <TName extends TableName>(
   name: TName,
@@ -298,12 +277,12 @@ const buildQuery = <TName extends TableName>(
   // `deletedAt` / `archivedAt` / `isDeleted` field of `NullOr(...)` type
   // we auto-derive a `where: { <col>: null }` filter. Callers can
   // override via `useTable(name, { where: ... })`.
-  const where = defaultWhereFromSchema(schema)
-  const t = (tables as Record<string, any>)[name]
+  const where = defaultWhereFromSchema(schema);
+  const t = (tables as Record<string, any>)[name];
   return queryDb(Object.keys(where).length === 0 ? t : t.where(where), {
     label: `${lcFirst(name)}:all`,
-  })
-}
+  });
+};
 
 // ─────────────────────────────────────────────────────────────────────
 // Public API
@@ -321,17 +300,17 @@ const resolveRpcOptions = <T extends UseTableOptions<TableName>>(
   options: T,
   liveStore: UseTableLiveStore,
 ): T => {
-  if (!options.rpc?.config || options.rpc.client) return options
-  const oRPC = liveStore.oRPC
-  if (!oRPC) return options
+  if (!options.rpc?.config || options.rpc.client) return options;
+  const oRPC = liveStore.oRPC;
+  if (!oRPC) return options;
   return {
     ...options,
     rpc: {
       ...options.rpc,
       client: oRPC,
     },
-  }
-}
+  };
+};
 
 /**
  * Options for {@link useTable}.
@@ -341,22 +320,23 @@ const resolveRpcOptions = <T extends UseTableOptions<TableName>>(
  * override (e.g. inside TanStack Router loaders where there is no
  * React tree to read context from).
  */
+// oxlint-disable-next-line no-unused-vars
 export interface UseTableOptions<TName extends TableName> {
   /** Server-side filter applied via `tables[name].where(...)`. */
-  where?: Record<string, unknown>
+  where?: Record<string, unknown>;
   /**
    * Override commit handlers. By default the package auto-derives
    * `commitInsert` / `commitUpdate` / `commitDelete` from the events
    * emitted by `createLiveStoreDb`. Pass any of these to override.
    */
-  commitInsert?: MutationCallbacks['commitInsert']
+  commitInsert?: MutationCallbacks["commitInsert"];
   /**
    * Tier 1.7 — bulk insert override. Auto-derived when the schema has
    * a `v1.<Model>BulkUpserted` event.
    */
-  commitBulkInsert?: MutationCallbacks['commitBulkInsert']
-  commitUpdate?: MutationCallbacks['commitUpdate']
-  commitDelete?: MutationCallbacks['commitDelete']
+  commitBulkInsert?: MutationCallbacks["commitBulkInsert"];
+  commitUpdate?: MutationCallbacks["commitUpdate"];
+  commitDelete?: MutationCallbacks["commitDelete"];
   /**
    * oRPC write-back. Pass an oRPC client + a per-table RPC config to
    * have mutations round-trip to the server automatically. The package
@@ -370,31 +350,32 @@ export interface UseTableOptions<TName extends TableName> {
    * error type. Defaults to `console.error`.
    */
   rpc?: {
-    client?: RpcClient
-    config?: RpcConfig
-    onError?: (err: unknown, ctx: RpcErrorContext) => void
-  }
+    client?: RpcClient;
+    config?: RpcConfig;
+    onError?: (err: unknown, ctx: RpcErrorContext) => void;
+  };
   /**
    * Explicit LiveStore runtime. If omitted, the package reads it from
    * <LiveStoreProvider> via React context.
    */
-  liveStore?: UseTableLiveStore
+  liveStore?: UseTableLiveStore;
   /**
    * Skip the React context read. Use in loaders / scripts that run
    * outside a React tree. `liveStore` is required when this is true.
    */
-  noContext?: boolean
+  noContext?: boolean;
 }
 
+// oxlint-disable-next-line no-unused-vars
 export interface UseTableResult<TName extends TableName> {
   /** The TanStack DB collection with `.insert/.update/.delete` and `.toArray`. */
-  collection: Collection<LiveStoreRow, string>
+  collection: Collection<LiveStoreRow, string>;
   /** The LiveStore table def. */
-  table: ReturnType<typeof queryDb>
+  table: ReturnType<typeof queryDb>;
   /** The full LiveStore schema. */
-  schema: unknown
+  schema: unknown;
   /** `true` if this table is server-authoritative (no client write APIs). */
-  isReadOnly: boolean
+  isReadOnly: boolean;
 }
 
 /**
@@ -403,13 +384,9 @@ export interface UseTableResult<TName extends TableName> {
  * no promise/async is involved. Bypasses React's "creating promises in
  * Client Components" complaint.
  */
-const collectionCache = new Map<string, Collection<LiveStoreRow, string>>()
-const collectionCacheKey = (
-  storeId: string,
-  name: string,
-  where: unknown,
-  rpc: unknown,
-) => JSON.stringify({ storeId, name, where, rpc })
+const collectionCache = new Map<string, Collection<LiveStoreRow, string>>();
+const collectionCacheKey = (storeId: string, name: string, where: unknown, rpc: unknown) =>
+  JSON.stringify({ storeId, name, where, rpc });
 
 /**
  * Build a `Collection` for the given model name + options. Synchronous —
@@ -421,34 +398,35 @@ export const getCollection = <TName extends TableName>(
   name: TName,
   options: UseTableOptions<TName> & { liveStore: UseTableLiveStore },
 ): Collection<LiveStoreRow, string> => {
-  const { liveStore, where, rpc, commitInsert, commitBulkInsert, commitUpdate, commitDelete } = options
-  const store = liveStore.store
-  const key = collectionCacheKey(store['storeId'] ?? '', name, where, rpc)
-  const cached = collectionCache.get(key)
-  if (cached) return cached
+  const { liveStore, where, rpc, commitInsert, commitBulkInsert, commitUpdate, commitDelete } =
+    options;
+  const store = liveStore.store;
+  const key = collectionCacheKey(store["storeId"] ?? "", name, where, rpc);
+  const cached = collectionCache.get(key);
+  if (cached) return cached;
 
-  const tableDef = (liveStore.tables as Record<string, any>)[name]
-  const tableSchema = tableDef?.schema as unknown
+  const tableDef = (liveStore.tables as Record<string, any>)[name];
+  const tableSchema = tableDef?.schema as unknown;
   const table = where
     ? tableDef.where(where)
-    : buildQuery(name, liveStore.tables as Record<string, any>, tableSchema)
+    : buildQuery(name, liveStore.tables as Record<string, any>, tableSchema);
 
-  const live = liveStore.events as Record<string, any>
-  const isReadOnly = Boolean((liveStore.tables as Record<string, any>)[name]?.['__readOnly'])
+  const live = liveStore.events as Record<string, any>;
+  const isReadOnly = Boolean((liveStore.tables as Record<string, any>)[name]?.["__readOnly"]);
 
   // Auto-derive commit handlers unless the caller overrode them.
-  const auto = isReadOnly ? {} : buildCommitCallbacks(store, name, live)
+  const auto = isReadOnly ? {} : buildCommitCallbacks(store, name, live);
 
-  const insert = commitInsert ?? auto.commitInsert
-  const bulkInsert = commitBulkInsert ?? auto.commitBulkInsert
-  const update = commitUpdate ?? auto.commitUpdate
-  const delete_ = commitDelete ?? auto.commitDelete
+  const insert = commitInsert ?? auto.commitInsert;
+  const bulkInsert = commitBulkInsert ?? auto.commitBulkInsert;
+  const update = commitUpdate ?? auto.commitUpdate;
+  const delete_ = commitDelete ?? auto.commitDelete;
 
   // Tier 1.1 — auto-derive `getKey` from the schema's primary-key
   // column. The schema walker looks for an `isPrimaryKey` marker on the
   // ast property signatures (set by upstream `prisma-effect-schema-generator`
   // when it emits one); falls back to `'id'`.
-  const rowGetKey = getKeyFromTable(tableSchema)
+  const rowGetKey = getKeyFromTable(tableSchema);
 
   // Tier 0.6 — oRPC write-back via the createMutations helper.
   const mutationOverrides = rpc?.client
@@ -460,16 +438,16 @@ export const getCollection = <TName extends TableName>(
         rpcConfig: rpc.config,
         onRpcError: rpc.onError,
       })
-    : null
+    : null;
 
   // Resolve the actual commit handlers: caller overrides win, then
   // mutationOverrides (Tier 0.6 RPC write-back), then the auto-derived
   // handlers. `mutationOverrides` and `auto` may both contribute
   // handlers — `mutationOverrides` takes priority when present.
-  const finalInsert = mutationOverrides?.commitInsert ?? insert
-  const finalBulkInsert = mutationOverrides?.commitBulkInsert ?? bulkInsert
-  const finalUpdate = mutationOverrides?.commitUpdate ?? update
-  const finalDelete = mutationOverrides?.commitDelete ?? delete_
+  const finalInsert = mutationOverrides?.commitInsert ?? insert;
+  const finalBulkInsert = mutationOverrides?.commitBulkInsert ?? bulkInsert;
+  const finalUpdate = mutationOverrides?.commitUpdate ?? update;
+  const finalDelete = mutationOverrides?.commitDelete ?? delete_;
 
   const collection = createCollection(
     liveStoreCollectionOptions<LiveStoreRow>({
@@ -486,21 +464,19 @@ export const getCollection = <TName extends TableName>(
               // bulk handler so a single `v1.<Model>BulkUpserted`
               // event is emitted. Single-row transactions still go
               // through `commitInsert` for back-compat.
-              const mutations = transaction.mutations
+              const mutations = transaction.mutations;
               if (finalBulkInsert && mutations.length > 1) {
-                finalBulkInsert(
-                  mutations.map((m) => m.modified) as unknown as LiveStoreRow[],
-                )
-                return
+                finalBulkInsert(mutations.map((m) => m.modified) as unknown as LiveStoreRow[]);
+                return;
               }
               for (const m of mutations) {
-                finalInsert(m.modified as LiveStoreRow)
+                finalInsert(m.modified as LiveStoreRow);
               }
             },
             ...(finalBulkInsert
               ? {
                   onBulkInsert: async ({ rows }) => {
-                    finalBulkInsert(rows as unknown as LiveStoreRow[])
+                    finalBulkInsert(rows as unknown as LiveStoreRow[]);
                   },
                 }
               : {}),
@@ -510,7 +486,7 @@ export const getCollection = <TName extends TableName>(
         ? {
             onUpdate: async ({ transaction }) => {
               for (const m of transaction.mutations) {
-                finalUpdate(m.original as LiveStoreRow, m.changes as Partial<LiveStoreRow>)
+                finalUpdate(m.original as LiveStoreRow, m.changes as Partial<LiveStoreRow>);
               }
             },
           }
@@ -519,26 +495,26 @@ export const getCollection = <TName extends TableName>(
         ? {
             onDelete: async ({ transaction }) => {
               for (const m of transaction.mutations) {
-                finalDelete(m.original as LiveStoreRow)
+                finalDelete(m.original as LiveStoreRow);
               }
             },
           }
         : {}),
     }),
-  )
-  collectionCache.set(key, collection)
+  );
+  collectionCache.set(key, collection);
   // Tier 2.7: auto-register the collection with the devtools bridge
   // so consumers don't have to pass `collections={...}` explicitly
   // to `<LiveStoreDevtoolsBridge>`. The devtools panel shows
   // per-collection `status:change` events for every collection
   // created by `useTable`.
-  if (typeof window !== 'undefined') {
-    void import('./devtools/bridge.ts').then(({ registerCollection }) => {
-      registerCollection(name, collection)
-    })
+  if (typeof window !== "undefined") {
+    void import("./devtools/bridge.ts").then(({ registerCollection }) => {
+      registerCollection(name, collection);
+    });
   }
-  return collection
-}
+  return collection;
+};
 
 // ─────────────────────────────────────────────────────────────────────
 // React hook
@@ -558,16 +534,16 @@ export const useTable = <TName extends TableName>(
   name: TName,
   options: UseTableOptions<TName> = {},
 ): UseTableResult<TName> => {
-  const liveStore = options.liveStore ?? (!options.noContext ? useLiveStore() : null)
+  const liveStore = options.liveStore ?? (!options.noContext ? useLiveStore() : null);
   if (!liveStore) {
     throw new Error(
       `useTable(${name}): no LiveStore runtime in scope. Either render inside a <LiveStoreProvider>, or pass \`liveStore\` explicitly.`,
-    )
+    );
   }
 
   // Tier 0.6 — auto-derive `rpc.client` from the LiveStore context
   // (or an explicit `liveStore.oRPC`) when only `rpc.config` is given.
-  const resolvedOptions = resolveRpcOptions(options, liveStore)
+  const resolvedOptions = resolveRpcOptions(options, liveStore);
 
   const collection = useMemo(
     () => getCollection(name, { ...resolvedOptions, liveStore }),
@@ -581,15 +557,15 @@ export const useTable = <TName extends TableName>(
       resolvedOptions.commitUpdate,
       resolvedOptions.commitDelete,
     ],
-  )
+  );
 
   return {
     collection: collection as Collection<LiveStoreRow, string>,
     table: buildQuery(name, liveStore.tables as Record<string, any>) as never,
     schema: liveStore.schema,
-    isReadOnly: Boolean((liveStore.tables as Record<string, any>)[name]?.['__readOnly']),
-  }
-}
+    isReadOnly: Boolean((liveStore.tables as Record<string, any>)[name]?.["__readOnly"]),
+  };
+};
 
 // ─────────────────────────────────────────────────────────────────────
 // Bulk + loaders
@@ -604,16 +580,13 @@ export const useTable = <TName extends TableName>(
 export const useTables = <Spec extends Record<string, UseTableOptions<TableName>>>(
   spec: Spec,
 ): { [K in keyof Spec]: Collection<LiveStoreRow, string> } => {
-  const liveStore = useLiveStore()
+  const liveStore = useLiveStore();
   if (!liveStore) {
-    throw new Error('useTables: no LiveStore runtime in scope.')
+    throw new Error("useTables: no LiveStore runtime in scope.");
   }
-  const out: Record<string, any> = {}
+  const out: Record<string, any> = {};
   for (const [name, opts] of Object.entries(spec)) {
-    const resolvedOpts = resolveRpcOptions(
-      opts as UseTableOptions<TableName>,
-      liveStore,
-    )
+    const resolvedOpts = resolveRpcOptions(opts as UseTableOptions<TableName>, liveStore);
     out[name] = useMemo(
       () => getCollection(name, { ...resolvedOpts, liveStore }),
       [
@@ -626,10 +599,10 @@ export const useTables = <Spec extends Record<string, UseTableOptions<TableName>
         resolvedOpts.commitUpdate,
         resolvedOpts.commitDelete,
       ],
-    )
+    );
   }
-  return out as { [K in keyof Spec]: Collection<LiveStoreRow, string> }
-}
+  return out as { [K in keyof Spec]: Collection<LiveStoreRow, string> };
+};
 
 /**
  * Loader-side equivalent of `useTable`. Returns a `Collection` directly
@@ -639,6 +612,6 @@ export const useTables = <Spec extends Record<string, UseTableOptions<TableName>
 export const preloadTable = <TName extends TableName>(
   name: TName,
   options: UseTableOptions<TName> & { liveStore: UseTableLiveStore },
-): Collection<LiveStoreRow, string> => getCollection(name, options)
+): Collection<LiveStoreRow, string> => getCollection(name, options);
 
-export type { RpcClient, RpcConfig }
+export type { RpcClient, RpcConfig };

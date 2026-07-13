@@ -1,24 +1,21 @@
-import { Schema, SessionIdSymbol } from '@livestore/livestore'
+import { Schema, SessionIdSymbol } from "@livestore/livestore";
 
-import { createLiveStoreDb } from 'livestore-prisma'
+import { createLiveStoreDb } from "livestore-prisma";
 import {
   PRIMARY_KEY_COLUMNS,
   SOFT_DELETE_COLUMNS,
   TABLES,
-} from '../../prisma/generated/client-schemas/index.ts'
-import {
-  EventSchema,
-  TodoSchema,
-} from '../../prisma/generated/client-schemas/index.ts'
+} from "../../prisma/generated/client-schemas/index.ts";
+import { EventSchema, TodoSchema } from "../../prisma/generated/client-schemas/index.ts";
 
 const UiStateSchema = Schema.Struct({
   newTodoText: Schema.String,
   filter: Schema.Union(
-    Schema.Literal('all'),
-    Schema.Literal('active'),
-    Schema.Literal('completed'),
+    Schema.Literal("all"),
+    Schema.Literal("active"),
+    Schema.Literal("completed"),
   ),
-})
+});
 
 const lsdb = createLiveStoreDb({
   models: { Todo: TodoSchema, Event: EventSchema },
@@ -39,11 +36,11 @@ const lsdb = createLiveStoreDb({
   clientDocuments: {
     uiState: {
       schema: UiStateSchema,
-      default: { id: SessionIdSymbol, value: { newTodoText: '', filter: 'all' as const } },
+      default: { id: SessionIdSymbol, value: { newTodoText: "", filter: "all" as const } },
     },
   },
-})
+});
 
-export const { tables, events, materializers, schema, readOnly } = lsdb
+export const { tables, events, materializers, schema, readOnly } = lsdb;
 
-export const SyncPayload = Schema.Struct({ authToken: Schema.String })
+export const SyncPayload = Schema.Struct({ authToken: Schema.String });

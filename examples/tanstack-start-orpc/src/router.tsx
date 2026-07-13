@@ -1,5 +1,5 @@
-import { createRouter as createTanStackRouter } from '@tanstack/react-router'
-import { routeTree } from './routeTree.gen.ts'
+import { createRouter as createTanStackRouter } from "@tanstack/react-router";
+import { routeTree } from "./routeTree.gen.ts";
 
 /**
  * `createRouter` in `@tanstack/react-router` lets you supply a typed
@@ -14,6 +14,6 @@ export function getRouter() {
   return createTanStackRouter({
     routeTree,
     scrollRestoration: true,
-    defaultPreload: 'intent',
-  })
+    defaultPreload: "intent",
+  });
 }

@@ -9,11 +9,11 @@
  * — this file is the fallback for non-React call sites (Tier 1.5
  * preload hooks, etc.).
  */
-import { createStore } from '@livestore/livestore'
-import type { Store } from '@livestore/livestore'
-import { makePersistedAdapter } from '@livestore/adapter-web'
+import { createStore } from "@livestore/livestore";
+import type { Store } from "@livestore/livestore";
+import { makePersistedAdapter } from "@livestore/adapter-web";
 
-let storePromise: Promise<Store<any>> | null = null
+let storePromise: Promise<Store<any>> | null = null;
 
 /**
  * Get-or-create the singleton LiveStore store. First call creates the
@@ -27,17 +27,17 @@ export const getOrCreateStore = (): Promise<Store<any>> => {
     // overrides via the `LiveStoreProvider` config; for non-React
     // consumers (loaders, scripts), the package exposes a no-op
     // defaults that the consumer can replace.
-    const storeId = 'app-root'
+    const storeId = "app-root";
     const adapter = makePersistedAdapter({
-      storage: { type: 'opfs' as const },
+      storage: { type: "opfs" as const },
       worker: undefined as never,
       sharedWorker: undefined as never,
-    })
+    });
     storePromise = createStore({
       storeId,
       schema: undefined as never,
       adapter,
-    }) as unknown as Promise<Store<any>>
+    }) as unknown as Promise<Store<any>>;
   }
-  return storePromise
-}
+  return storePromise;
+};

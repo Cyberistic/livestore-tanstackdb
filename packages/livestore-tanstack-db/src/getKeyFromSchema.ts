@@ -1,4 +1,4 @@
-import { Schema } from '@livestore/livestore'
+import { Schema } from "@livestore/livestore";
 
 /**
  * Tier 1.1 — derive a `getKey`-style accessor from a Prisma/Effect
@@ -17,40 +17,40 @@ import { Schema } from '@livestore/livestore'
 export const getKeyFromSchema = <TRow extends Record<string, unknown>>(
   schema: Schema.Schema.Any,
 ): ((row: TRow) => string) => {
-  const props = propertySignaturesOf(schema)
+  const props = propertySignaturesOf(schema);
 
   const annotated = props.find((p) => {
-    const a = p.annotations
-    return a?.isPrimaryKey === true || a?._id === true
-  })
+    const a = p.annotations;
+    return a?.isPrimaryKey === true || a?._id === true;
+  });
   if (annotated) {
-    const name = String(annotated.name)
-    return (row: TRow) => row[name] as unknown as string
+    const name = String(annotated.name);
+    return (row: TRow) => row[name] as unknown as string;
   }
 
-  const namedId = props.find((p) => String(p.name) === 'id')
+  const namedId = props.find((p) => String(p.name) === "id");
   if (namedId) {
-    return (row: TRow) => row.id as unknown as string
+    return (row: TRow) => row.id as unknown as string;
   }
 
   throw new Error(
     `getKeyFromSchema: no primary key found on schema (${
       props.length === 0
-        ? 'struct has no fields'
+        ? "struct has no fields"
         : 'tried isPrimaryKey, _id annotations, and a field named "id"'
     })`,
-  )
-}
+  );
+};
 
 type PropertySignature = {
-  readonly name: PropertyKey
-  readonly type: { _tag: string }
-  readonly isOptional: boolean
-  readonly annotations: Record<string, unknown> & Record<symbol, unknown>
-}
+  readonly name: PropertyKey;
+  readonly type: { _tag: string };
+  readonly isOptional: boolean;
+  readonly annotations: Record<string, unknown> & Record<symbol, unknown>;
+};
 
 const propertySignaturesOf = (schema: Schema.Schema.Any): PropertySignature[] => {
   const direct = (schema.ast as { propertySignatures?: ReadonlyArray<PropertySignature> })
-    .propertySignatures
-  return Array.isArray(direct) ? [...direct] : []
-}
+    .propertySignatures;
+  return Array.isArray(direct) ? [...direct] : [];
+};

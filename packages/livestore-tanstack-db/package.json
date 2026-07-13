@@ -20,18 +20,6 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit"
   },
-  "peerDependencies": {
-    "@livestore/livestore": "^0.4.0",
-    "@tanstack/db": "^0.6.0",
-    "effect": "^3.0.0 || ^4.0.0",
-    "react": "^19.0.0"
-  },
-  "peerDependenciesMeta": {
-    "@livestore/livestore": { "optional": false },
-    "@tanstack/db": { "optional": false },
-    "effect": { "optional": false },
-    "react": { "optional": false }
-  },
   "dependencies": {
     "@standard-schema/spec": "^1.1.0",
     "@tanstack/devtools-event-client": "^0.5.0",
@@ -45,5 +33,25 @@
     "@types/react": "^19.0.0",
     "effect": "^3.21.0",
     "typescript": "^5.4.0"
+  },
+  "peerDependencies": {
+    "@livestore/livestore": "^0.4.0",
+    "@tanstack/db": "^0.6.0",
+    "effect": "^3.0.0 || ^4.0.0",
+    "react": "^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@livestore/livestore": {
+      "optional": false
+    },
+    "@tanstack/db": {
+      "optional": false
+    },
+    "effect": {
+      "optional": false
+    },
+    "react": {
+      "optional": false
+    }
   }
 }

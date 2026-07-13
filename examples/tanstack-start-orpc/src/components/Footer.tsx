@@ -1,42 +1,43 @@
-import { useCallback, useMemo } from 'react'
-import { useLiveQuery } from '@tanstack/react-db'
+import { useCallback, useMemo } from "react";
+import { useLiveQuery } from "@tanstack/react-db";
 
-import { useTable } from 'livestore-tanstack-db'
+import { useTable } from "livestore-tanstack-db";
 
-import { uiState$ } from '../livestore/queries.ts'
-import { events, rpcConfig } from '../livestore/schema.ts'
-import { useAppStore } from '../livestore/store.ts'
-import { rpcPosts } from '../lib/orpc-client.ts'
-import type { TodoRow } from './types.ts'
+import { uiState$ } from "../livestore/queries.ts";
+import { events, rpcConfig } from "../livestore/schema.ts";
+import { useAppStore } from "../livestore/store.ts";
+import { rpcPosts } from "../lib/orpc-client.ts";
+import type { TodoRow } from "./types.ts";
 
 export const Footer = () => {
-  const store = useAppStore()
-  const { collection: todosCollection } = useTable('Todo', {
+  const store = useAppStore();
+  const { collection: todosCollection } = useTable("Todo", {
     rpc: { client: rpcPosts, config: rpcConfig },
-  })
-  const { data: todos } = useLiveQuery((_q) => todosCollection, [])
+  });
+  const { data: todos } = useLiveQuery((_q) => todosCollection, []);
   const { filter } = store.useQuery(uiState$) as unknown as {
-    filter: 'all' | 'active' | 'completed'
-  }
+    filter: "all" | "active" | "completed";
+  };
 
   const incompleteCount = useMemo(
-    () => (todos as unknown as ReadonlyArray<TodoRow> | undefined)?.filter((t) => !t.completed).length ?? 0,
+    () =>
+      (todos as unknown as ReadonlyArray<TodoRow> | undefined)?.filter((t) => !t.completed)
+        .length ?? 0,
     [todos],
-  )
+  );
 
   const setFilter = useCallback(
-    (next: 'all' | 'active' | 'completed') =>
-      store.commit(events.uiStateSet({ filter: next })),
+    (next: "all" | "active" | "completed") => store.commit(events.uiStateSet({ filter: next })),
     [store],
-  )
+  );
 
   const onClearCompleted = useCallback(() => {
-    const rows = todos as unknown as ReadonlyArray<TodoRow> | undefined
-    if (!rows) return
+    const rows = todos as unknown as ReadonlyArray<TodoRow> | undefined;
+    if (!rows) return;
     for (const t of rows) {
-      if (t.completed) todosCollection.delete(t.id)
+      if (t.completed) todosCollection.delete(t.id);
     }
-  }, [todos, todosCollection])
+  }, [todos, todosCollection]);
 
   return (
     <footer className="footer">
@@ -45,10 +46,10 @@ export const Footer = () => {
         <li>
           <a
             href="#/"
-            className={filter === 'all' ? 'selected' : ''}
+            className={filter === "all" ? "selected" : ""}
             onClick={(e) => {
-              e.preventDefault()
-              setFilter('all')
+              e.preventDefault();
+              setFilter("all");
             }}
           >
             All
@@ -57,10 +58,10 @@ export const Footer = () => {
         <li>
           <a
             href="#/"
-            className={filter === 'active' ? 'selected' : ''}
+            className={filter === "active" ? "selected" : ""}
             onClick={(e) => {
-              e.preventDefault()
-              setFilter('active')
+              e.preventDefault();
+              setFilter("active");
             }}
           >
             Active
@@ -69,10 +70,10 @@ export const Footer = () => {
         <li>
           <a
             href="#/"
-            className={filter === 'completed' ? 'selected' : ''}
+            className={filter === "completed" ? "selected" : ""}
             onClick={(e) => {
-              e.preventDefault()
-              setFilter('completed')
+              e.preventDefault();
+              setFilter("completed");
             }}
           >
             Completed
@@ -83,5 +84,5 @@ export const Footer = () => {
         Clear completed
       </button>
     </footer>
-  )
-}
+  );
+};

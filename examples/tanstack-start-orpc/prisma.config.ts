@@ -1,4 +1,4 @@
-import { defineConfig } from 'prisma/config'
+import { defineConfig } from "prisma/config";
 
 /**
  * Prisma 7 configuration. The `url` field on `datasource` was removed
@@ -11,12 +11,12 @@ import { defineConfig } from 'prisma/config'
  * via `migrationsDir`.
  */
 export default defineConfig({
-  schema: './prisma/schema.prisma',
+  schema: "./prisma/schema.prisma",
   migrations: {
-    path: './prisma/migrations',
+    path: "./prisma/migrations",
     seed: undefined,
   },
   datasource: {
-    url: process.env.DATABASE_URL ?? 'file:./prisma/dev.db',
+    url: process.env.DATABASE_URL ?? "file:./prisma/dev.db",
   },
-})
+});

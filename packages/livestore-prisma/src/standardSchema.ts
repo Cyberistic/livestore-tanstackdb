@@ -10,11 +10,11 @@
  * the `v1.<Model>Deleted` event payload) — those still need
  * narrowing, so we wrap them too.
  */
-import { Schema, State } from '@livestore/livestore'
+import { Schema, State } from "@livestore/livestore";
 
 export const toStandardSchemaV1 = <A, I>(
   schema: Schema.Schema<A, I, unknown>,
-): Schema.Schema<A, I, never> => Schema.standardSchemaV1(schema as Schema.Schema<A, I, never>)
+): Schema.Schema<A, I, never> => Schema.standardSchemaV1(schema as Schema.Schema<A, I, never>);
 
 /**
  * Type-system bridge: LiveStore's `State.SQLite.table({ schema })`
@@ -31,5 +31,5 @@ export const toStandardSchemaV1 = <A, I>(
  */
 export const toLiveStoreSchema = (
   schema: unknown,
-): Parameters<typeof State.SQLite.table>[0]['schema'] =>
-  schema as Parameters<typeof State.SQLite.table>[0]['schema']
+): Parameters<typeof State.SQLite.table>[0]["schema"] =>
+  schema as Parameters<typeof State.SQLite.table>[0]["schema"];

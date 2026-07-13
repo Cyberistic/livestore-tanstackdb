@@ -1,30 +1,18 @@
-import 'todomvc-app-css/index.css'
+import "todomvc-app-css/index.css";
 
-import { TanStackDevtools } from '@tanstack/react-devtools'
-import {
-  HeadContent,
-  Outlet,
-  Scripts,
-  createRootRouteWithContext,
-} from '@tanstack/react-router'
-import type { ReactNode } from 'react'
-import { useEffect, useState } from 'react'
+import { TanStackDevtools } from "@tanstack/react-devtools";
+import { HeadContent, Outlet, Scripts, createRootRouteWithContext } from "@tanstack/react-router";
+import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 
-import { LiveStoreProvider } from "livestore-tanstack-db"
-import {
-  LiveStoreDevtoolsBridge,
-  liveStoreDevtoolsPlugin,
-} from 'livestore-tanstack-db/devtools'
+import { LiveStoreProvider } from "livestore-tanstack-db";
+import { LiveStoreDevtoolsBridge, liveStoreDevtoolsPlugin } from "livestore-tanstack-db/devtools";
 
-import { rpcPosts } from '../lib/orpc-client.ts'
-import { events, schema, tables } from '../livestore/schema.ts'
-import {
-  storeRegistry,
-  StoreRegistryProvider,
-  useAppStore,
-} from '../livestore/store.ts'
+import { rpcPosts } from "../lib/orpc-client.ts";
+import { events, schema, tables } from "../livestore/schema.ts";
+import { storeRegistry, StoreRegistryProvider, useAppStore } from "../livestore/store.ts";
 
-import type { RouterAppContext } from '../router.tsx'
+import type { RouterAppContext } from "../router.tsx";
 
 /**
  * SSR-safe LiveStore mount. LiveStore's web adapter needs
@@ -38,59 +26,59 @@ import type { RouterAppContext } from '../router.tsx'
  * events, schema, oRPC }` from the provider below.
  */
 function ClientOnlyLiveStore({ children }: { children: ReactNode }) {
-  const [hydrated, setHydrated] = useState(false)
-  useEffect(() => setHydrated(true), [])
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => setHydrated(true), []);
 
   if (!hydrated) {
-    return <div data-ssr="pending">Hydrating…</div>
+    return <div data-ssr="pending">Hydrating…</div>;
   }
 
-  return <BoundProvider>{children}</BoundProvider>
+  return <BoundProvider>{children}</BoundProvider>;
 }
 
 function BoundProvider({ children }: { children: ReactNode }) {
-  const store = useAppStore()
+  const store = useAppStore();
   if (!store) {
-    return <div data-ssr="pending">Resolving store…</div>
+    return <div data-ssr="pending">Resolving store…</div>;
   }
 
   // `LiveStoreProvider.schema` accepts the full `createLiveStoreDb`
   // shape — no `as unknown as` cast needed.
-  const runtime = { store, tables, events, schema }
+  const runtime = { store, tables, events, schema };
 
   return (
     <LiveStoreProvider schema={runtime} oRPC={rpcPosts}>
       {children}
     </LiveStoreProvider>
-  )
+  );
 }
 
 export const Route = createRootRouteWithContext<RouterAppContext>()({
   head: () => ({
     meta: [
-      { charSet: 'utf-8' },
+      { charSet: "utf-8" },
       {
-        name: 'viewport',
-        content: 'width=device-width, initial-scale=1',
+        name: "viewport",
+        content: "width=device-width, initial-scale=1",
       },
-      { title: 'TodoMVC — TanStack Start + oRPC + LiveStore + TanStack DB' },
+      { title: "TodoMVC — TanStack Start + oRPC + LiveStore + TanStack DB" },
     ],
     links: [
       {
-        rel: 'stylesheet',
-        href: 'https://unpkg.com/todomvc-app-css@2.4.3/index.css',
+        rel: "stylesheet",
+        href: "https://unpkg.com/todomvc-app-css@2.4.3/index.css",
       },
     ],
   }),
   component: RootComponent,
-})
+});
 
 function RootComponent() {
   return (
     <RootDocument>
       <Outlet />
     </RootDocument>
-  )
+  );
 }
 
 /**
@@ -99,17 +87,13 @@ function RootComponent() {
  * beyond the store. Just mount once.
  */
 function DevtoolsMount() {
-  // DEVTOOLS BRIDGE TEMPORARILY DISABLED — was triggering the oRPC
-  // Proxy's `get` trap via property access. Re-enable once the bridge
-  // is fixed to avoid touching the procedure Proxies.
-  return null
-  // const store = useAppStore()
-  // return (
-  //   <>
-  //     <LiveStoreDevtoolsBridge store={store} />
-  //     <TanStackDevtools plugins={[liveStoreDevtoolsPlugin()]} />
-  //   </>
-  // )
+  const store = useAppStore();
+  return (
+    <>
+      <LiveStoreDevtoolsBridge store={store} />
+      <TanStackDevtools plugins={[liveStoreDevtoolsPlugin()]} />
+    </>
+  );
 }
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
@@ -128,5 +112,5 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
         <Scripts />
       </body>
     </html>
-  )
+  );
 }

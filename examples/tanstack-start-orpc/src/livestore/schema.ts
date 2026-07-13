@@ -1,7 +1,7 @@
-import { Schema, SessionIdSymbol } from '@livestore/livestore'
-import { createLiveStoreDb } from 'livestore-prisma'
+import { Schema, SessionIdSymbol } from "@livestore/livestore";
+import { createLiveStoreDb } from "livestore-prisma";
 
-import { liveStoreDbConfig } from '../../prisma/generated/livestore/index.ts'
+import { liveStoreDbConfig } from "../../prisma/generated/livestore/index.ts";
 
 /**
  * UI session state (one row per session, stored in OPFS only). Includes
@@ -10,11 +10,11 @@ import { liveStoreDbConfig } from '../../prisma/generated/livestore/index.ts'
 const UiStateSchema = Schema.Struct({
   newTodoText: Schema.String,
   filter: Schema.Union(
-    Schema.Literal('all'),
-    Schema.Literal('active'),
-    Schema.Literal('completed'),
+    Schema.Literal("all"),
+    Schema.Literal("active"),
+    Schema.Literal("completed"),
   ),
-})
+});
 
 export const { tables, events, materializers, schema, readOnly } = createLiveStoreDb({
   ...liveStoreDbConfig,
@@ -29,11 +29,11 @@ export const { tables, events, materializers, schema, readOnly } = createLiveSto
       schema: UiStateSchema as never,
       default: {
         id: SessionIdSymbol as never,
-        value: { newTodoText: '', filter: 'all' as const },
+        value: { newTodoText: "", filter: "all" as const },
       },
     },
   },
-})
+});
 
 /**
  * oRPC RPC config consumed by `useTable(name, { rpc: {...} })`. Tier
@@ -48,15 +48,15 @@ export const { tables, events, materializers, schema, readOnly } = createLiveSto
  */
 export const rpcConfig = {
   posts: {
-    create: { event: 'todoCreated' },
+    create: { event: "todoCreated" },
     // `complete` toggles existing rows (boolean update). Pin the event
     // so classifyProcedure routes it to the UPDATE bucket only — without
     // this it would fall into the `['insert', 'update']` upsert default
     // and fire on every new row, racing the create RPC.
-    complete: { event: 'todoCompleted' },
-    delete: { event: 'todoDeleted' },
-    bulkSeed: { event: 'todoBulkUpserted' },
+    complete: { event: "todoCompleted" },
+    delete: { event: "todoDeleted" },
+    bulkSeed: { event: "todoBulkUpserted" },
   },
-} as const
+} as const;
 
-export const SyncPayload = Schema.Struct({ authToken: Schema.String })
+export const SyncPayload = Schema.Struct({ authToken: Schema.String });

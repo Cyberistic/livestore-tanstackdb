@@ -1,5 +1,5 @@
-import { oc } from '@orpc/contract'
-import { z } from 'zod'
+import { oc } from "@orpc/contract";
+import { z } from "zod";
 
 /**
  * oRPC contract for the `posts.*` namespace — five procedures that map
@@ -20,29 +20,27 @@ const TodoRow = z.object({
   text: z.string(),
   completed: z.boolean(),
   deletedAt: z.union([z.date(), z.string(), z.null()]).optional(),
-})
+});
 
-const TodoInput = TodoRow.pick({ text: true })
+const TodoInput = TodoRow.pick({ text: true });
 
 export const listContract = oc
   .input(z.object({}).optional())
-  .output(z.object({ rows: z.array(TodoRow) }))
+  .output(z.object({ rows: z.array(TodoRow) }));
 
-export const createContract = oc
-  .input(TodoInput)
-  .output(z.object({ row: TodoRow }))
+export const createContract = oc.input(TodoInput).output(z.object({ row: TodoRow }));
 
 export const completeContract = oc
   .input(z.object({ id: z.string() }))
-  .output(z.object({ id: z.string(), completed: z.boolean() }))
+  .output(z.object({ id: z.string(), completed: z.boolean() }));
 
 export const deleteContract = oc
   .input(z.object({ id: z.string() }))
-  .output(z.object({ id: z.string() }))
+  .output(z.object({ id: z.string() }));
 
 export const bulkSeedContract = oc
   .input(z.object({ rows: z.array(TodoInput) }))
-  .output(z.object({ count: z.number().int().nonnegative() }))
+  .output(z.object({ count: z.number().int().nonnegative() }));
 
 export const contract = {
   posts: {
@@ -52,4 +50,4 @@ export const contract = {
     delete: deleteContract,
     bulkSeed: bulkSeedContract,
   },
-} as const
+} as const;

@@ -1,20 +1,20 @@
-import { makePersistedAdapter } from '@livestore/adapter-web'
-import LiveStoreSharedWorker from '@livestore/adapter-web/shared-worker?sharedworker'
-import { StoreRegistry } from '@livestore/livestore'
-import { StoreRegistryProvider, useStore } from '@livestore/react'
-import { unstable_batchedUpdates as batchUpdates } from 'react-dom'
+import { makePersistedAdapter } from "@livestore/adapter-web";
+import LiveStoreSharedWorker from "@livestore/adapter-web/shared-worker?sharedworker";
+import { StoreRegistry } from "@livestore/livestore";
+import { StoreRegistryProvider, useStore } from "@livestore/react";
+import { unstable_batchedUpdates as batchUpdates } from "react-dom";
 
-import LiveStoreWorker from '../livestore.worker.ts?worker'
-import { getStoreId } from '../util/store-id.ts'
-import { SyncPayload, schema } from './schema.ts'
+import LiveStoreWorker from "../livestore.worker.ts?worker";
+import { getStoreId } from "../util/store-id.ts";
+import { SyncPayload, schema } from "./schema.ts";
 
-const storeId = getStoreId()
+const storeId = getStoreId();
 
 const adapter = makePersistedAdapter({
-  storage: { type: 'opfs' },
+  storage: { type: "opfs" },
   worker: LiveStoreWorker,
   sharedWorker: LiveStoreSharedWorker,
-})
+});
 
 /**
  * Canonical LiveStore React entry point — mirrors `examples/web-todomvc-sync-cf`.
@@ -32,7 +32,7 @@ const adapter = makePersistedAdapter({
  */
 export const storeRegistry = new StoreRegistry({
   defaultOptions: { batchUpdates },
-})
+});
 
 export const storeOptions = {
   storeId,
@@ -40,9 +40,9 @@ export const storeOptions = {
   adapter,
   batchUpdates,
   syncPayloadSchema: SyncPayload,
-  syncPayload: { authToken: 'insecure-token-change-me' },
-} as const
+  syncPayload: { authToken: "insecure-token-change-me" },
+} as const;
 
-export const useAppStore = () => useStore(storeOptions)
+export const useAppStore = () => useStore(storeOptions);
 
-export { StoreRegistryProvider }
+export { StoreRegistryProvider };
