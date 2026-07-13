@@ -42,6 +42,9 @@ export type {
   UseTableLiveStore,
 } from './useTable.ts'
 
+export { useCrud } from './useCrud.ts'
+export type { CrudActions, CrudResult } from './useCrud.ts'
+
 export type { RpcClient, RpcConfig } from './mutations.ts'
 
 export { createLazyDb } from './lazyDb.ts'

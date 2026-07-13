@@ -63,10 +63,11 @@ const syncedEventFor = (
   events: Record<string, any>,
   action: string,
 ) => {
-  const e = (events as Record<string, any>)[`${VERSION}.${name}${action}`]
+  const key = `${lcFirst(name)}${action}`
+  const e = (events as Record<string, any>)[key]
   if (!e) {
     throw new Error(
-      `useTable(${name}): no \`${VERSION}.${name}${action}\` event found in schema. ` +
+      `useTable(${name}): no \`${key}\` event found in schema. ` +
         `Did createLiveStoreDb's includeCreated/includeDeleted flags disable it? ` +
         `Or did you forget to add a \`booleanColumns\` for per-field events?`,
     )
@@ -117,16 +118,36 @@ const makeCommitUpdate = (
   name: TableName,
   events: Record<string, any>,
 ) => {
-  // For per-field boolean toggles we emit Completed/Uncompleted events.
-  // For other updates we emit Upserted.
-  // Tier 0.6: this gets synthesized from the oRPC config — for now,
-  // callers can override commitUpdate in their options.
-  return (input: { row: LiveStoreRow }) => {
-    const upserted = (events as Record<string, any>)[`${VERSION}.${name}Upserted`]
-    if (upserted) {
+  // Auto-detect per-field boolean toggles and emit Completed/Uncompleted
+  // events (mirrors `createMutations` in mutations.ts). For other updates
+  // we emit `<model>Upserted` if the schema has one. Callers can override
+  // `commitUpdate` in the options to take full control.
+  const modelPrefix = lcFirst(name)
+  return (original: LiveStoreRow, changes: Record<string, unknown>) => {
+    const id = ((changes as { id?: unknown }).id ??
+      (original as { id: unknown }).id) as string
+    const merged = { ...original, ...changes }
 
-      store.commit(upserted(input))
+    const changeEntries = Object.entries(changes as Record<string, unknown>)
+    const onlyBooleans =
+      changeEntries.length > 0 &&
+      changeEntries.every(([, v]) => typeof v === 'boolean')
+
+    if (onlyBooleans) {
+      for (const [field, value] of changeEntries) {
+        if (typeof value !== 'boolean') continue
+        const suffix = value ? 'Completed' : 'Uncompleted'
+        const e = (events as Record<string, any>)[
+          `${modelPrefix}${ucFirst(field)}${suffix}`
+        ]
+        if (e) store.commit(e({ id }))
+      }
+      return
     }
+
+    const upsertKey = `${modelPrefix}Upserted`
+    const upserted = (events as Record<string, any>)[upsertKey]
+    if (upserted) store.commit(upserted({ row: merged }))
   }
 }
 
@@ -274,6 +295,10 @@ export const getCollection = async <TName extends TableName>(
         })
       : null
 
+    const finalInsert = mutationOverrides?.commitInsert ?? insert
+    const finalUpdate = mutationOverrides?.commitUpdate ?? update
+    const finalDelete = mutationOverrides?.commitDelete ?? delete_
+
     return createCollection(
       liveStoreCollectionOptions<LiveStoreRow>({
         id: name.toLowerCase(),
@@ -281,12 +306,36 @@ export const getCollection = async <TName extends TableName>(
         query: table,
         getKey,
         isReadOnly,
-        ...(insert ? { commitInsert: insert } : {}),
-        ...(update ? { commitUpdate: update } : {}),
-        ...(delete_ ? { commitDelete: delete_ } : {}),
-        ...(mutationOverrides?.commitInsert ? { commitInsert: mutationOverrides.commitInsert } : {}),
-        ...(mutationOverrides?.commitUpdate ? { commitUpdate: mutationOverrides.commitUpdate } : {}),
-        ...(mutationOverrides?.commitDelete ? { commitDelete: mutationOverrides.commitDelete } : {}),
+        ...(finalInsert
+          ? {
+              onInsert: async ({ transaction }) => {
+                for (const mutation of transaction.mutations) {
+                  finalInsert(mutation.modified as never)
+                }
+              },
+            }
+          : {}),
+        ...(finalUpdate
+          ? {
+              onUpdate: async ({ transaction }) => {
+                for (const mutation of transaction.mutations) {
+                  finalUpdate(
+                    mutation.original as never,
+                    mutation.changes as never,
+                  )
+                }
+              },
+            }
+          : {}),
+        ...(finalDelete
+          ? {
+              onDelete: async ({ transaction }) => {
+                for (const mutation of transaction.mutations) {
+                  finalDelete(mutation.original as never)
+                }
+              },
+            }
+          : {}),
       }),
     )
   })()

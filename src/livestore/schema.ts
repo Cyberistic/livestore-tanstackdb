@@ -38,6 +38,6 @@ const lsdb = createLiveStoreDb({
   },
 })
 
-export const { tables, events, materializers, schema } = lsdb
+export const { tables, events, materializers, schema, readOnly } = lsdb
 
 export const SyncPayload = Schema.Struct({ authToken: Schema.String })

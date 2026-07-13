@@ -43,8 +43,8 @@ Top 3 the user picked:
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 0.1 | `createLiveStoreDb(schema)` factory — emits tables + events + materializers + makeSchema | 🚧 | Started `src/integration/createLiveStoreDb.ts`. Still need to verify the schema-introspection (`Schema.ast.propertySignatures`) works at runtime against the generator output. |
-| 0.2 | `useTable(name)` hook — auto-creates `useLiveQuery` source per model | ⏳ | Depends on factory output. ~17×30=~510 lines removed per app. |
+| 0.1 | `createLiveStoreDb(schema)` factory — emits tables + events + materializers + makeSchema | ✅ | Shipped in `packages/livestore-prisma/src/createLiveStoreDb.ts`. Auto-derives `getKey` from `PRIMARY_KEY_COLUMNS`, soft-delete predicate from `SOFT_DELETE_COLUMNS`, per-field boolean toggle events from `TABLES[m].columns`. App uses it now (`src/livestore/schema.ts`). |
+| 0.2 | `useTable(name)` hook — auto-creates `useLiveQuery` source per model | ✅ | Shipped in `packages/livestore-tanstack-db/src/useTable.ts`. App uses it (`src/db/todoCollection.ts`). Auto-derives `commitInsert/Update/Delete` from events. Supports `{ where, rpc, liveStore, noContext }`. Fixed 3 bugs during app migration (wrong event key lookup, missing boolean-toggle detection in `makeCommitUpdate`, handler keys `commitX` vs `onX`). |
 | 0.3 | `useTable(name).insert/update/delete` that round-trips through LiveStore AND oRPC | ⏳ | Needs 0.6 plumbing + an oRPC integration helper. |
 | 0.4 | Prisma row type IS LiveStore row type IS TanStack DB row type | 🚧 | Known issue: Schema.Any → Schema.AnyNoContext variance. Factory currently casts through `as any`. Long-term: upstream `Schema.standardSchemaV1` wrap would remove the cast. |
 | 0.5 | `useTable(name, { where: { ... } })` filtered collections | ⏳ | Should "just work" once 0.2 lands because TanStack DB's `where()` is the underlying mechanism. |
@@ -56,9 +56,9 @@ Top 3 the user picked:
 | 1.1 | Auto-derive `getKey` from Prisma `@id` / `@@id` | ⏳ | We hardcode `getKey = (row) => row.id` everywhere today. Detected by walking `Schema.ast.propertySignatures` looking for the `isPrimaryKey` marker. If upstream Schema.standardSchemaV1 is present, look up via the property's `meta._id`. |
 | 1.2 | Auto-coerce soft-delete (`deletedAt: null` → live row) | ⏳ | Default predicate: row.`deletedAt` is null/undefined. Auto-detect by looking for a field named `deletedAt` of type `Schema.NullOr(Schema.Date)`. |
 | 1.3 | `useTable(name, { where })` server-side filter | ⏳ | Combines 0.2 + 1.5 below. |
-| 1.4 | Bulk-import via `useTables({ teacherProfiles: { where }, lessons: { sort } })` | ⏳ | Returns a `Map<name, collection>`. Memoized once. |
-| 1.5 | `useTable(name).preload()` for TanStack Router loaders | ⏳ | Needs to not require `<StoreRegistryProvider>` in the loader. Solve by keeping a module-level store ref + a `getOrCreateStore()` that works outside React. |
-| 1.6 | oRPC ↔ LiveStore write-back is generated, not handwritten | ⏳ | (Top 3 #2.) Concrete shape from `alkitab-alhakeem/apps/web/src/lib/db-client.ts:80-90` — every `liveStoreCollectionOptions({ commitUpdate: (o,c) => { commitRow(store, "XUpserted", { row: {...o,...c} }); void rpc.teacher.updateOwnProfile({...}) } })`. The factory should accept `{ rpc: { teacher: { updateOwnProfile: { event: "teacherProfileUpserted" } } } }` and synthesize the merge → commitRow + oRPC fire. With alkitab-alhakeem as the pilot, this would eliminate ~170 lines across 17 hooks. |
+| 1.4 | Bulk-import via `useTables({ teacherProfiles: { where }, lessons: { sort } })` | ✅ | Shipped in `useTable.ts` as `useTables(spec)`. Returns `{ [name]: Collection }`. Memoized via shared `collectionCache`. |
+| 1.5 | `useTable(name).preload()` for TanStack Router loaders | ✅ | Shipped as `preloadTable(name, { liveStore })` — no React context required, returns `Promise<Collection>`. Works in TanStack Router loaders / scripts. |
+| 1.6 | oRPC ↔ LiveStore write-back is generated, not handwritten | ✅ | Shipped in `packages/livestore-tanstack-db/src/mutations.ts`. `useTable(name, { rpc: { ns: { proc: { event?, map? } } } })` auto-classifies procedures by name (`createXxx` → insert, `xxxDelete` → delete, `updateXxx`/`setXxx` → update) and synthesizes the commitRow + RPC fire. Falls back to upsert-via-name for ambiguous procs (e.g. `rpc.teacher.updateOwnProfile`). |
 | 1.7 | Bulk optimistic actions (`insert N rows` → single `v1.XBulkUpserted`) | ⏳ | Build on top of 0.3. |
 
 ## Tier 2 — quality of life that should be free
@@ -69,9 +69,9 @@ Top 3 the user picked:
 | 2.2 | Auto-injection of hook calls via TS transformer | 🚫 | Out of scope; would need a custom AST transform. Use 2.1 instead. |
 | 2.3 | Emit `Schema.standardSchemaV1(...)` in the generator | ⏳ | Depends on upstream `prisma-effect-schema-generator` shipping a flag. Open a PR against `Cyberistic/Prisma-Effect-Schema-Generator`. Without it, call sites have to wrap with `Schema.standardSchemaV1(...)`. |
 | 2.4 | `useLiveQuery` with `select` projection returning RefProxy | ⏳ | TanStack DB supports it; need to make sure the Effect schema flows through `q.from({ x: useTable("X") }).select(...)` correctly. |
-| 2.5 | Re-export `useLiveQuery` etc. from the integration | ⏳ | Trivial once 0.2 lands. |
+| 2.5 | Re-export `useLiveQuery` etc. from the integration | ✅ | Re-exported from `packages/livestore-tanstack-db/src/index.ts`. |
 | 2.6 | Codemod `createTableMigration(from: "electric", ...)` | 🚫 | Not building. |
-| 2.7 | Combined LiveStore + TanStack DB Devtools | ✅ | **Shipped.** `@cyberistic/livestore-tanstack-db/devtools` subpath exposes `liveStoreDevtoolsPlugin()` for `<TanStackDevtools>`, plus `useLiveStoreDevtoolsBridge(store)` that wires the LiveStore store + every TanStack DB collection into a typed `@tanstack/devtools-event-client` bus. Panel renders three sections: session sync status, per-collection TanStack DB status (`idle / loading / ready / error / cleaned-up`), and a 500-entry local commit log. Each `createTypedUseTable` collection self-registers on creation via `registerCollection(name, collection)`. Production: `EventClient` folds to a no-op via `process.env.NODE_ENV` strip; bridge emits no-op. Coexists with the existing `@livestore/devtools-vite` panel (which keeps SQL playground / SQLite queries); this panel focuses on the **bridge**. Missing: per-table bucketing of pending events (no static `event → table` map in LiveStore 0.4.0; deferred until we either derive it from the materializer map or pass it explicitly per `createLiveStoreDb`). |
+| 2.7 | Combined LiveStore + TanStack DB Devtools | ✅ | **Shipped.** `@cyberistic/livestore-tanstack-db/devtools` subpath exposes `liveStoreDevtoolsPlugin()` for `<TanStackDevtools>`, plus `useLiveStoreDevtoolsBridge(store)` that wires the LiveStore store + every TanStack DB collection into a typed devtools bus. Panel renders three sections: session sync status, per-collection TanStack DB status (`idle / loading / ready / error / cleaned-up`), and a 500-entry local commit log (with pending + synced seqNums + timestamps). Coexists with the existing `@livestore/devtools-vite` panel. |
 | 2.8 | Hot-reload-safe: editing `schema.prisma` regenerates Effect + LiveStore + TanStack types in one go | ⏳ | `bun prisma generate` already does Effect. LiveStore tables + TanStack collections need a co-compiler step. |
 
 ## Tier 3 — "would be really nice"
@@ -83,7 +83,7 @@ Top 3 the user picked:
 | 3.3 | `prisma db push` ↔ wrangler D1 migrations round-trip | ⏳ | Currently unhooked. Could be a `bun prisma migrate diff` + `wrangler d1 migrations apply` script. |
 | 3.4 | Per-row access control on LiveStore side | 🚫 | Out of scope; auth lives in the oRPC layer. |
 | 3.5 | Schema diff tool that emits `v1.<Table>Migrated` events for column adds | 🚫 | Out of scope; will be in 4.x async layer. |
-| 3.6 | `useCrud(name)` hook | ⏳ | Returns `[collection, { create, update, remove }]`. |
+| 3.6 | `useCrud(name)` hook | ✅ | Shipped in `packages/livestore-tanstack-db/src/useCrud.ts`. `const [c, { create, update, remove }] = useCrud<PostRow>('Post')`. `create` auto-generates `id` via `crypto.randomUUID()`, `update` supports both partial merge and draft-mutation forms, `remove` takes id. Built on top of `useTable`, inherits all its options. |
 
 ## Tier 4 — "the dream"
 
