@@ -37,16 +37,27 @@ export interface UseTableLiveStore {
   tables: Record<string, any>
   events: Record<string, any>
   schema: unknown
+  /**
+   * Tier 0.6 — optional oRPC client. Either set on
+   * <LiveStoreProvider oRPC={...}> (then `useTable` auto-derives
+   * `rpc.client` from it) or supplied explicitly alongside a
+   * hand-rolled `liveStore` option.
+   */
+  oRPC?: RpcClient
 }
 
 const useLiveStore = (): UseTableLiveStore | null => {
-  const config = useLiveStoreConfig() as { schema: any } | null
+  const config = useLiveStoreConfig()
   if (!config) return null
   // The consumer's `createLiveStoreDb` output is stored on the
   // LiveStoreProvider's `schema` prop. The package's `useTable` reads
-  // tables/events/store from the same place. Consumers who want a
-  // non-context API can pass an explicit `liveStore` option instead.
-  return config.schema as unknown as UseTableLiveStore
+  // tables/events/store from the same place. The optional `oRPC`
+  // client sits alongside `schema` in the context so per-table hooks
+  // can auto-derive their RPC bindings (Tier 0.6).
+  return {
+    ...(config.schema as unknown as UseTableLiveStore),
+    oRPC: config.oRPC,
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -284,6 +295,30 @@ const buildQuery = <TName extends TableName>(
 // ─────────────────────────────────────────────────────────────────────
 
 /**
+ * Tier 0.6 — auto-derive the oRPC client from the surrounding
+ * LiveStore context. Explicit `options.rpc.client` wins; otherwise,
+ * when `options.rpc.config` is provided AND the liveStore runtime
+ * carries an `oRPC` client (either via <LiveStoreProvider oRPC={...}>
+ * or an explicit `liveStore.oRPC`), we fill in `rpc.client` so callers
+ * don't have to thread the same client through every call site.
+ */
+const resolveRpcOptions = <T extends UseTableOptions<TableName>>(
+  options: T,
+  liveStore: UseTableLiveStore,
+): T => {
+  if (!options.rpc?.config || options.rpc.client) return options
+  const oRPC = liveStore.oRPC
+  if (!oRPC) return options
+  return {
+    ...options,
+    rpc: {
+      ...options.rpc,
+      client: oRPC,
+    },
+  }
+}
+
+/**
  * Options for {@link useTable}.
  *
  * The package reads `store` / `tables` / `events` from the surrounding
@@ -497,17 +532,21 @@ export const useTable = <TName extends TableName>(
     )
   }
 
+  // Tier 0.6 — auto-derive `rpc.client` from the LiveStore context
+  // (or an explicit `liveStore.oRPC`) when only `rpc.config` is given.
+  const resolvedOptions = resolveRpcOptions(options, liveStore)
+
   const collection = useMemo(
-    () => getCollection(name, { ...options, liveStore }),
+    () => getCollection(name, { ...resolvedOptions, liveStore }),
     [
       liveStore,
       name,
-      options.where,
-      options.rpc,
-      options.commitInsert,
-      options.commitBulkInsert,
-      options.commitUpdate,
-      options.commitDelete,
+      resolvedOptions.where,
+      resolvedOptions.rpc,
+      resolvedOptions.commitInsert,
+      resolvedOptions.commitBulkInsert,
+      resolvedOptions.commitUpdate,
+      resolvedOptions.commitDelete,
     ],
   )
 
@@ -538,17 +577,21 @@ export const useTables = <Spec extends Record<string, UseTableOptions<TableName>
   }
   const out: Record<string, any> = {}
   for (const [name, opts] of Object.entries(spec)) {
+    const resolvedOpts = resolveRpcOptions(
+      opts as UseTableOptions<TableName>,
+      liveStore,
+    )
     out[name] = useMemo(
-      () => getCollection(name, { ...(opts as UseTableOptions<TableName>), liveStore }),
+      () => getCollection(name, { ...resolvedOpts, liveStore }),
       [
         liveStore,
         name,
-        opts.where,
-        opts.rpc,
-        opts.commitInsert,
-        opts.commitBulkInsert,
-        opts.commitUpdate,
-        opts.commitDelete,
+        resolvedOpts.where,
+        resolvedOpts.rpc,
+        resolvedOpts.commitInsert,
+        resolvedOpts.commitBulkInsert,
+        resolvedOpts.commitUpdate,
+        resolvedOpts.commitDelete,
       ],
     )
   }

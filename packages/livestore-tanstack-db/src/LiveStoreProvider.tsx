@@ -2,6 +2,8 @@ import type { LiveStoreSchema } from '@livestore/livestore'
 import type React from 'react'
 import { createContext, useContext, useMemo } from 'react'
 
+import type { RpcClient } from './mutations.ts'
+
 export interface LiveStoreProviderProps {
   /**
    * The LiveStore schema returned by `createLiveStoreDb(...)` (or the
@@ -11,18 +13,19 @@ export interface LiveStoreProviderProps {
    */
   schema: LiveStoreSchema
   /**
-   * Reserved for Tier 0.6: the oRPC client used to translate TanStack
-   * DB mutations into LiveStore events. Accepted today so consumers
-   * can wire it through; per-table hooks (Tier 0.3) will pick it up
-   * via `useLiveStoreConfig().oRPC` once they land.
+   * Tier 0.6: the oRPC client used to translate TanStack DB mutations
+   * into LiveStore events. When set, any
+   * `useTable(name, { rpc: { config } })` call auto-derives `rpc.client`
+   * from this value, so consumers don't have to thread the same client
+   * through every call site.
    */
-  oRPC?: unknown
+  oRPC?: RpcClient
   children: React.ReactNode
 }
 
 export interface LiveStoreConfig {
   schema: LiveStoreSchema
-  oRPC: unknown
+  oRPC?: RpcClient
   /**
    * Tables that should NOT get client-side write APIs. Read by
    * `lazyDb` and `useTable` to refuse commit handlers. Typically

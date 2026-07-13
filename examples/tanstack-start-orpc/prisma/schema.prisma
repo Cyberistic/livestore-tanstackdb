@@ -1,0 +1,39 @@
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+generator effect_client {
+  provider            = "prisma-effect-schema-generator"
+  output              = "./generated/client-schemas/index.ts"
+  idColumn            = "true"
+  softDeleteColumn    = "true"
+  tables              = "true"
+  exportModelNames    = "true"
+  exportModelNameType = "true"
+  standardSchemaV1    = "true"
+}
+
+model Todo {
+  id        String    @id
+  text      String
+  completed Boolean   @default(false)
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("todos")
+}
+
+model Event {
+  id        Int      @id @default(autoincrement())
+  storeId   String   @map("store_id")
+  name      String
+  args      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([storeId, id])
+  @@map("events")
+}

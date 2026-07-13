@@ -44,7 +44,7 @@ import {
  * published effect@4 beta on npm. PR #801 advanced it but the
  * migration isn't viable yet. Stay on v1 stable.
  */
-const app = await alchemy("livestore-tanstack-db")
+const app = await alchemy("spa-example")
 
 export const db = await D1Database("todos-db", {
   name: "todos-db",
@@ -59,8 +59,8 @@ export const syncBackend = await DurableObjectNamespace("sync-backend", {
 })
 
 export const site = await Vite("site", {
-  name: "livestore-tanstack-db-site",
-  entrypoint: "./dist/livestore_tanstack_db_site/index.js",
+  name: "livestore-tanstack-db-spa",
+  entrypoint: "./dist/spa_example_site/index.js",
   assets: "./dist/client",
   bindings: {
     DB: db,

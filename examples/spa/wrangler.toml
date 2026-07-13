@@ -1,4 +1,4 @@
-name = "example-web-todomvc-sync-cf"
+name = "spa-example-site"
 main = "./src/cf-worker/index.ts"
 compatibility_date = "2025-05-08"
 compatibility_flags = ["enable_request_signal", "nodejs_compat"]

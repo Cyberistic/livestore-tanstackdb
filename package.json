@@ -1,68 +1,17 @@
 {
-  "name": "livestore-tanstack-db",
-  "version": "0.1.0",
-  "type": "module",
+  "name": "livestore-tanstack-db-workspace",
   "private": true,
-  "dependencies": {
-    "@livestore/adapter-web": "0.4.0",
-    "@livestore/livestore": "0.4.0",
-    "@livestore/peer-deps": "0.4.0",
-    "@livestore/react": "0.4.0",
-    "@livestore/sync-cf": "0.4.0",
-    "@livestore/wa-sqlite": "0.4.0",
-    "@overengineering/fps-meter": "0.2.4",
-    "@prisma/client": "^7.8.0",
-    "@tanstack/db": "0.6.14",
-    "@tanstack/devtools-utils": "^0.6.0",
-    "@tanstack/react-db": "0.1.92",
-    "prisma": "^7.8.0",
-    "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "react-error-boundary": "6.1.1",
-    "todomvc-app-css": "2.4.3"
-  },
-  "devDependencies": {
-    "@cloudflare/vite-plugin": "1.13.12",
-    "@cloudflare/workers-types": "4.20251118.0",
-    "@livestore/devtools-vite": "0.4.0-dev.25",
-    "@parcel/watcher": "^2.5.6",
-    "@playwright/test": "1.59.1",
-    "@tanstack/devtools": "^0.12.5",
-    "@tanstack/devtools-event-client": "^0.5.0",
-    "@tanstack/devtools-vite": "^0.8.1",
-    "@tanstack/react-devtools": "^0.10.8",
-    "@types/node": "^26.1.1",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "5.1.2",
-    "alchemy": "0.93.12",
-    "prisma-effect-schema-generator": "^0.1.8",
-    "tsx": "^4.23.0",
-    "typescript": "6.0.3",
-    "vite": "7.3.1",
-    "wrangler": "4.42.2"
-  },
-  "engines": {
-    "node": ">=24.0.0"
-  },
+  "type": "module",
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "examples/*"
   ],
   "scripts": {
-    "build": "vite build",
-    "deploy": "bun run build && alchemy deploy",
-    "dev": "alchemy dev",
-    "preview": "vite preview",
-    "test": "playwright test",
-    "typecheck": "tsc --noEmit",
-    "db:generate": "prisma generate",
-    "db:migrate": "DATABASE_URL=file:./prisma/dev.db prisma migrate diff --from-empty --to-schema ./prisma/schema.prisma --script > prisma/migrations/0001_init/migration.sql",
-    "alchemy:dev": "alchemy dev",
-    "alchemy:deploy": "alchemy deploy",
-    "alchemy:destroy": "alchemy destroy",
-    "destroy": "alchemy destroy"
-  },
-  "trustedDependencies": [
-    "@parcel/watcher"
-  ]
+    "typecheck": "bun run --filter '*' typecheck",
+    "build": "bun run --filter '*' build",
+    "dev:spa": "cd examples/spa && bun run dev",
+    "dev:start-orpc": "cd examples/tanstack-start-orpc && bun run dev",
+    "deploy:spa": "cd examples/spa && bun alchemy deploy",
+    "deploy:start-orpc": "cd examples/tanstack-start-orpc && bun alchemy deploy"
+  }
 }

@@ -1,0 +1,56 @@
+{
+  "name": "tanstack-start-orpc-example",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev --port 60001",
+    "build": "vite build",
+    "start": "node .output/server/index.mjs",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:diff": "prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/migrations/manual_migration.sql",
+    "deploy": "alchemy deploy",
+    "destroy": "alchemy destroy"
+  },
+  "dependencies": {
+    "@cyberistic/livestore-prisma": "file:../../packages/livestore-prisma",
+    "@cyberistic/livestore-tanstack-db": "file:../../packages/livestore-tanstack-db",
+    "@livestore/adapter-web": "0.4.0",
+    "@livestore/livestore": "0.4.0",
+    "@livestore/peer-deps": "0.4.0",
+    "@livestore/react": "0.4.0",
+    "@livestore/sync-cf": "0.4.0",
+    "@livestore/wa-sqlite": "0.4.0",
+    "@orpc/client": "1.14.8",
+    "@orpc/contract": "1.14.8",
+    "@orpc/server": "1.14.8",
+    "@tanstack/db": "0.6.14",
+    "@tanstack/react-db": "0.1.92",
+    "@tanstack/react-router": "1.170.17",
+    "@tanstack/react-start": "1.168.27",
+    "@tanstack/start-server-core": "1.169.16",
+    "effect": "3.21.4",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "todomvc-app-css": "2.4.3",
+    "zod": "3.24.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "4.20251118.0",
+    "@prisma/client": "7.8.0",
+    "@types/node": "26.1.1",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "5.1.2",
+    "alchemy": "0.93.12",
+    "prisma": "7.8.0",
+    "prisma-effect-schema-generator": "0.1.8",
+    "typescript": "6.0.3",
+    "vite": "7.3.1",
+    "wrangler": "4.42.2"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
