@@ -72,7 +72,7 @@ Top 3 the user picked:
 | 2.5 | Re-export `useLiveQuery` etc. from the integration | ✅ | Re-exported from `packages/livestore-tanstack-db/src/index.ts`. |
 | 2.6 | Codemod `createTableMigration(from: "electric", ...)` | 🚫 | Not building. |
 | 2.7 | Combined LiveStore + TanStack DB Devtools | ✅ | **Shipped.** `livestore-tanstack-db/devtools` subpath exposes `liveStoreDevtoolsPlugin()` for `<TanStackDevtools>`, plus `useLiveStoreDevtoolsBridge(store)` that wires the LiveStore store + every TanStack DB collection into a typed devtools bus. Panel renders three sections: session sync status, per-collection TanStack DB status (`idle / loading / ready / error / cleaned-up`), and a 500-entry local commit log (with pending + synced seqNums + timestamps). Coexists with the existing `@livestore/devtools-vite` panel. |
-| 2.8 | Hot-reload-safe: editing `schema.prisma` regenerates Effect + LiveStore + TanStack types in one go | ⏳ | `bun prisma generate` already does Effect. LiveStore tables + TanStack collections need a co-compiler step. |
+| 2.8 | Hot-reload-safe: editing `schema.prisma` regenerates Effect + LiveStore + TanStack types in one go | ✅ | Shipped. Workspace-root `bun run gen` runs both apps' Prisma generators (upstream `effect_client` + in-repo `livestore`) + rebuilds the integration packages. Narrower scripts: `gen:spa` (spa only) and `gen:start-orpc` (tanstack-start-orpc only). Documented in README. |
 
 ## Tier 3 — "would be really nice"
 
@@ -89,7 +89,7 @@ Top 3 the user picked:
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 4.1 | `bun live:gen` reads schema, regenerates everything | ⏳ | Top 3 culmination. |
+| 4.1 | `bun live:gen` reads schema, regenerates everything | ✅ | Shipped as `bun run gen` (the dream-list's `bun live:gen` name). The single command chains `gen:spa` + `gen:start-orpc` + `bun run build`, regenerating Effect schemas + LiveStore table defs + rebuilding the integration packages in one go. Add a Prisma model, run `bun run gen`, and the new collection is available everywhere. |
 | 4.2 | Full SSR with `<HydrationBoundary>`-style events injection | 🚫 | Out of scope. |
 | 4.3 | Versioned schema migrations (`v2.X` events co-existing with `v1.X`) | 🚫 | Out of scope. |
 | 4.4 | Cross-collection reactive joins | ⏳ | TanStack DB supports this; need the type alignment (0.4). |
@@ -175,14 +175,20 @@ Agent 1's `createLiveStoreDb` already returns `{ tables, events, materializers, 
 
 | Path | Status |
 |------|--------|
-| `src/integration/createLiveStoreDb.ts` | 🚧 Factory — emits tables/events/materializers/schema from generator output. `commitRow`-style oRPC write-back not yet wired. |
-| `src/integration/useTable.ts` | ⏳ TanStack DB glue — drafted, needs keying fix + lazy store per Agent 1's `camelToSnake` table keys |
-| `src/integration/lazy-db.ts` | ⏳ Tier 2.1 — `import { X } from "@/lib/db"` proxy that resolves to the right `useXCollection()` |
-| `src/integration/LiveStoreProvider.tsx` | ⏳ |
-| `src/integration/standardSchema.ts` | ⏳ `Schema.standardSchemaV1(...)` wrap (Tier 2.3) |
-| `src/livestore/schema.ts` | existing 89-line → now ~36 lines via the factory (Agent 1's commit `a949f05c`) |
-| `alchemy.run.ts` | working Cloudflare Worker template (Tier 3.2 source) |
-| `cloudflare-template/` | ⏳ Agent 4's template directory |
+| `packages/livestore-prisma/src/createLiveStoreDb.ts` | ✅ Tier 0.1 — factory emits tables/events/materializers/schema from generator output |
+| `packages/livestore-prisma/src/standardSchema.ts` | ✅ Tier 2.3 — `Schema.standardSchemaV1(...)` wrap + LiveStore schema coercion |
+| `packages/livestore-prisma/src/types.ts` | ✅ Generator-introspection types (`ColumnDescriptor`, `TableDescriptor`, `PrimaryKeyColumns`, etc.) |
+| `packages/livestore-prisma/src/generator.ts` | ✅ In-repo `prisma-livestore-generator` binary |
+| `packages/livestore-tanstack-db/src/useTable.ts` | ✅ Tier 0.2/0.3/0.5/1.3/1.6 — TanStack DB glue + `useTable` / `useTables` / `preloadTable` |
+| `packages/livestore-tanstack-db/src/useCrud.ts` | ✅ Tier 3.6 — `useCrud(name)` CRUD helper |
+| `packages/livestore-tanstack-db/src/mutations.ts` | ✅ Tier 1.6 — oRPC procedure classification + mutation auto-wiring |
+| `packages/livestore-tanstack-db/src/lazyDb.ts` | ✅ Tier 2.1 — `createLazyDb(tables, options)` proxy + `LoaderProxy` |
+| `packages/livestore-tanstack-db/src/LiveStoreProvider.tsx` | ✅ Tier 3.1 — `<LiveStoreProvider>` + `useLiveStoreConfig` |
+| `packages/livestore-tanstack-db/src/devtools/` | ✅ Tier 2.7 — LiveStore + TanStack DB devtools panel |
+| `examples/spa/` | ✅ SPA demo using `livestore-prisma` + `livestore-tanstack-db` |
+| `examples/tanstack-start-orpc/` | ✅ TanStack Start + oRPC demo |
+| `cloudflare-template/` | ✅ Agent 4's Cloudflare Worker template directory |
+| `alchemy.run.ts` | ✅ Working Cloudflare Worker template (Tier 3.2 source) |
 
 ---
 
@@ -196,17 +202,3 @@ We should file a PR against `Cyberistic/Prisma-Effect-Schema-Generator` adding:
 4. Emits a `tables: Record<string, TableDef>` map keyed by model name so consumers can iterate.
 
 These are all schema-introspection changes (no LiveStore coupling). Alchemy v2's stdlib calls them out as the missing features in §"Open questions" of todo.md.
-
----
-
-## Files in this repo
-
-| Path | Status |
-|------|--------|
-| `src/integration/createLiveStoreDb.ts` | 🚧 Factory — drafts the schema/events/materializers from generator output |
-| `src/integration/useTable.ts` | ⏳ TanStack DB glue |
-| `src/integration/LiveStoreProvider.tsx` | ⏳ |
-| `src/integration/lazyDb.ts` | ✅ Tier 2.1 — `createLazyDb(tables, options)` proxy + `LoaderProxy` shape |
-| `src/integration/useDb.tsx` | ✅ Tier 2.1 — `useDb(name)` hook (thin wrapper over `useTable`) |
-| `src/livestore/schema.ts` | existing 89-line hand-rolled — to be replaced by the factory |
-| `alchemy.run.ts` | working Cloudflare Worker template (Tier 3.2 source) |

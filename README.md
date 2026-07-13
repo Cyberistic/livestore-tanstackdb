@@ -460,6 +460,23 @@ export default defineConfig({
 })
 ```
 
+### Regenerate after a schema change
+
+`bun run gen` from the workspace root runs the full regeneration
+chain — Prisma generators (upstream `effect_client` + in-repo
+`livestore`) for both apps, then rebuilds the integration packages
+so consumers see the latest types.
+
+```bash
+bun run gen      # full chain: prisma generate + bun run build
+bun run gen:spa              # prisma generate only (spa)
+bun run gen:start-orpc       # prisma generate only (tanstack-start-orpc)
+```
+
+After a schema change in either example, run `bun run gen` (or the
+narrower `gen:spa` / `gen:start-orpc`) before restarting the dev
+server. The integration packages' `dist/` is what the apps import, so
+the rebuild step is mandatory for type changes to flow through.
 
 ## Files of interest
 (ai slop)

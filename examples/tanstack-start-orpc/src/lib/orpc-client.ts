@@ -47,6 +47,4 @@ export const orpc: RouterClient<typeof router> = getORPCClient()
  * `as unknown as RpcClient` cast and validates that every leaf is a
  * callable oRPC procedure.
  */
-export const rpcPosts = createORPCAdapter(orpc.posts, {
-  namespaces: ['posts'],
-})
+export const rpcPosts = createORPCAdapter(orpc, { namespaces: ['posts'] })
