@@ -184,7 +184,182 @@ export const usePostCollection = () => {
 }
 ```
 
-### 5. React components
+### 5. `useTable(name)` — the recommended path (Tier 0.2)
+
+The hand-written `usePostCollection` in step 4 is the lower-level
+`liveStoreCollectionOptions` API. Most apps want `useTable(name)`
+instead — it auto-derives `getKey`, the soft-delete predicate, and
+the commit handlers from the `createLiveStoreDb` schema:
+
+```tsx
+// src/db/postCollection.ts
+import { useMemo } from 'react'
+import { useTable } from '@cyberistic/livestore-tanstack-db'
+
+import { useAppStore } from '../livestore/store.ts'
+import { events, schema, tables } from '../livestore/schema.ts'
+
+export const usePostCollection = () => {
+  const store = useAppStore()
+  // `liveStore` bundles the store + tables + events + schema in one
+  // object. Pass it explicitly to skip the <LiveStoreProvider> lookup.
+  const liveStore = useMemo(
+    () => ({ store, tables, events, schema }),
+    [store],
+  )
+  const { collection } = useTable('Post', { liveStore })
+  return collection
+}
+```
+
+What `useTable` auto-derives for you:
+
+- **`getKey`** — read from the schema's primary-key column. The schema
+  walker looks for an `isPrimaryKey: true` annotation on the
+  property signatures (set by upstream `prisma-effect-schema-generator`
+  when `emitPrimaryKeyMarker: true`), falls back to a field whose
+  name ends in `Id`, and finally to `'id'`.
+- **Soft-delete predicate** — walks the schema for a column matching
+  `/(deleted|archived|removed)/` of `NullOr(...)` type, builds
+  `tables[name].where({ [col]: null })`. No need to pass
+  `where: { deletedAt: null }` on every call site.
+- **`commitInsert/Update/Delete`** — derived from the events emitted
+  by `createLiveStoreDb`: insert → `v1.<Model>Created`, delete →
+  `v1.<Model>Deleted`, update → auto-detected per-field boolean
+  toggles (`v1.<Model><Field>Completed` / `Uncompleted`) or
+  `v1.<Model>Upserted`.
+
+#### Filtered collections — `useTable(name, { where })`
+
+Pass `where` to override or add to the auto-derived predicate:
+
+```tsx
+// Active posts only (overrides the deletedAt filter)
+const activePosts = useTable('Post', {
+  liveStore,
+  where: { deletedAt: null, draft: false },
+})
+```
+
+The `where` becomes both the LiveStore `tables.Post.where(...)` query
+and a TanStack DB `q.where(...)` in one call.
+
+#### Bulk — `useTables({ Post: {...}, Comment: {...} })`
+
+Memoise many collections in one hook (Tier 1.4):
+
+```tsx
+const { Post, Comment } = useTables({
+  Post: { liveStore },
+  Comment: { liveStore, where: { deletedAt: null } },
+})
+```
+
+#### Loaders — `preloadTable(name, { liveStore })`
+
+Use outside a React tree — TanStack Router loaders, Cloudflare Worker
+handlers, scripts. Returns a `Collection` directly (sync, no Suspense):
+
+```ts
+// In a TanStack Router loader
+export const Route = createFileRoute('/posts')({
+  loader: ({ deps }) => {
+    const collection = preloadTable('Post', { liveStore })
+    // Optional: wait for first sync before returning
+    return collection.preload()
+  },
+  component: PostList,
+})
+```
+
+#### Single-call CRUD — `useCrud(name)`
+
+Tier 3.6 — wraps `useTable` and returns
+`[collection, { create, update, remove }]` with auto-generated
+`id`s and full type inference:
+
+```tsx
+const [posts, { create, update, remove }] = useCrud<PostRow>('Post')
+
+// `create` makes `id` optional — auto-generated via crypto.randomUUID()
+create({ title: 'hello', body: 'world' })
+create({ id: 'fixed', title: '...', body: '...' })  // explicit id
+
+// `update` accepts either a partial or a draft-mutation callback
+update(post.id, { title: 'new' })
+update(post.id, (draft) => { draft.title = 'new' })
+
+// `remove` takes the id
+remove(post.id)
+```
+
+### 6. RPC write-back (Tier 0.6)
+
+For apps that need to round-trip mutations through a server (oRPC,
+tRPC, fetch, hand-rolled clients), `useTable` accepts an RPC config:
+
+```tsx
+const lessons = useTable('Lesson', {
+  liveStore,
+  rpc: {
+    client: createRpcAdapter(orpc),   // any nested object of functions
+    config: {
+      teacher: {
+        createLesson: {},            // auto-classified as `insert`
+        updateLesson: {},            // auto-classified as `update`
+        deleteLesson: {},            // auto-classified as `delete`
+        // upsert-style proc — fires on both insert AND update
+        upsertLesson: { event: 'lessonUpserted' },
+        // explicit map: translate the row into the rpc input shape
+        updateOwnProfile: { map: (row) => ({ bio: row.bio }) },
+      },
+    },
+  },
+})
+```
+
+Procedure-name heuristics auto-classify each proc into
+`commitInsert/Update/Delete`:
+
+| Procedure name pattern            | Wired to      |
+|-----------------------------------|---------------|
+| `createXxx`, `addXxx`, `upsertXxx` | `commitInsert`|
+| `updateXxx`, `setXxx`, `markXxx`  | `commitUpdate`|
+| `xxxDelete`, `xxxRemove`          | `commitDelete`|
+| (fallback)                        | both insert + update (upsert-by-name) |
+
+Override per-proc with `{ event: 'lessonUpserted' }` to pin a specific
+LiveStore event (the event name suffix `Created` / `Deleted` /
+anything else disambiguates the mutation kind).
+
+#### `createRpcAdapter(client, { namespaces? })`
+
+Validates that any nested object of callable functions matches the
+`RpcClient` shape. RPC-agnostic — works with oRPC, tRPC, fetch
+wrappers, or plain objects:
+
+```tsx
+import { createRpcAdapter } from '@cyberistic/livestore-tanstack-db'
+
+// Plain object
+const rpc = createRpcAdapter({
+  teacher: {
+    createLesson: (input) => fetch('/api/teacher/lesson', { method: 'POST', body: JSON.stringify(input) }),
+    deleteLesson: (input) => fetch(`/api/teacher/lesson/${input.id}`, { method: 'DELETE' }),
+  },
+})
+
+// Restrict to specific namespaces (skip internal ones)
+const rpc = createRpcAdapter(orpc, { namespaces: ['teacher', 'student'] })
+
+// Skip validation warnings if you trust the shape
+const rpc = createRpcAdapter(orpc, { skipValidation: true })
+```
+
+Missing procedures become `undefined` in the output — the mutation
+layer treats them as no-ops.
+
+### 7. React components
 
 ```tsx
 // src/components/PostList.tsx
@@ -221,7 +396,7 @@ posts.update(post.id, draft => { draft.title = 'Updated' })
 posts.delete(post.id)
 ```
 
-### 6. Devtools (optional)
+### 8. Devtools (optional)
 
 <img width="1496" height="824" alt="image" src="https://github.com/user-attachments/assets/316aca38-618e-41b6-a1e4-3c0b34149754" />
 
