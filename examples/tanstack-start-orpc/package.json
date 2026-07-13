@@ -16,8 +16,8 @@
     "alchemy:deploy": "alchemy deploy"
   },
   "dependencies": {
-    "@cyberistic/livestore-prisma": "file:../../packages/livestore-prisma",
-    "@cyberistic/livestore-tanstack-db": "file:../../packages/livestore-tanstack-db",
+    "livestore-prisma": "file:../../packages/livestore-prisma",
+    "livestore-tanstack-db": "file:../../packages/livestore-tanstack-db",
     "@livestore/adapter-web": "0.4.0",
     "@livestore/livestore": "0.4.0",
     "@livestore/peer-deps": "0.4.0",

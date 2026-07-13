@@ -1,5 +1,5 @@
 {
-  "name": "@cyberistic/livestore-tanstack-db",
+  "name": "livestore-tanstack-db",
   "version": "0.1.0",
   "description": "LiveStore + TanStack DB integration. Pattern B adapter, useTable hook, lazy db proxy, oRPC write-back, and React provider. Independent of Prisma — works with any source of LiveStore schemas.",
   "type": "module",

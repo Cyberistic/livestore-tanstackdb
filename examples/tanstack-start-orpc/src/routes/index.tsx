@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 
-import { useTable } from '@cyberistic/livestore-tanstack-db'
+import { useTable } from 'livestore-tanstack-db'
 
 import { Footer } from '../components/Footer.tsx'
 import { Header } from '../components/Header.tsx'

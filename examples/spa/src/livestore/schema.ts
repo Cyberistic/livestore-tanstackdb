@@ -1,6 +1,6 @@
 import { Schema, SessionIdSymbol } from '@livestore/livestore'
 
-import { createLiveStoreDb } from '@cyberistic/livestore-prisma'
+import { createLiveStoreDb } from 'livestore-prisma'
 import {
   PRIMARY_KEY_COLUMNS,
   SOFT_DELETE_COLUMNS,

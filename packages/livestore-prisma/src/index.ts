@@ -8,7 +8,7 @@
  *     `prisma-effect-schema-generator` schemas and builds a runnable
  *     LiveStore schema.
  *
- * Pairs with `@cyberistic/livestore-tanstack-db`, which provides the
+ * Pairs with `livestore-tanstack-db`, which provides the
  * TanStack-DB glue (useTable, lazyDb, mutations, LiveStoreProvider).
  */
 export { createLiveStoreDb } from './createLiveStoreDb.ts'

@@ -1,5 +1,6 @@
 import 'todomvc-app-css/index.css'
 
+import { TanStackDevtools } from '@tanstack/react-devtools'
 import {
   HeadContent,
   Outlet,
@@ -9,7 +10,12 @@ import {
 import type { ReactNode } from 'react'
 import { useEffect, useState } from 'react'
 
-import { LiveStoreProvider } from '@cyberistic/livestore-tanstack-db'
+import { LiveStoreProvider } from "livestore-tanstack-db"
+import {
+  LiveStoreDevtoolsBridge,
+  liveStoreDevtoolsPlugin,
+  rpcConfig,
+} from 'livestore-tanstack-db/devtools'
 
 import { rpcPosts } from '../lib/orpc-client.ts'
 import { events, schema, tables } from '../livestore/schema.ts'
@@ -20,8 +26,6 @@ import {
 } from '../livestore/store.ts'
 
 import type { RouterAppContext } from '../router.tsx'
-
-void events
 
 /**
  * SSR-safe LiveStore mount. LiveStore's web adapter needs
@@ -51,12 +55,9 @@ function BoundProvider({ children }: { children: ReactNode }) {
     return <div data-ssr="pending">Resolving store…</div>
   }
 
-  const runtime = {
-    store,
-    tables,
-    events,
-    schema,
-  } as unknown as Parameters<typeof LiveStoreProvider>[0]['schema']
+  // `LiveStoreProvider.schema` accepts the full `createLiveStoreDb`
+  // shape — no `as unknown as` cast needed.
+  const runtime = { store, tables, events, schema }
 
   return (
     <LiveStoreProvider schema={runtime} oRPC={rpcPosts}>
@@ -93,6 +94,21 @@ function RootComponent() {
   )
 }
 
+/**
+ * Tier 2.7: drop-in devtools bridge. `useTable('Todo')` auto-registers
+ * the collection internally, so the bridge doesn't need any props
+ * beyond the store. Just mount once.
+ */
+function DevtoolsMount() {
+  const store = useAppStore()
+  return (
+    <>
+      <LiveStoreDevtoolsBridge store={store} />
+      <TanStackDevtools plugins={[liveStoreDevtoolsPlugin()]} />
+    </>
+  )
+}
+
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en">
@@ -101,7 +117,10 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
       </head>
       <body>
         <StoreRegistryProvider storeRegistry={storeRegistry}>
-          <ClientOnlyLiveStore>{children}</ClientOnlyLiveStore>
+          <ClientOnlyLiveStore>
+            {children}
+            <DevtoolsMount />
+          </ClientOnlyLiveStore>
         </StoreRegistryProvider>
         <Scripts />
       </body>

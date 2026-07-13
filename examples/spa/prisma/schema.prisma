@@ -6,7 +6,7 @@
 //      plus the introspection maps the integration factory consumes
 //      (`PRIMARY_KEY_COLUMNS`, `SOFT_DELETE_COLUMNS`, `TABLES`).
 //
-//   2. `livestore` — the in-repo `@cyberistic/livestore-prisma` package's
+//   2. `livestore` — the in-repo `livestore-prisma` package's
 //      generator. Reads a sidecar `livestore.annotations.json` for
 //      per-table flags (serverOnly, custom event names) and emits
 //      LiveStore-specific code: tables, events, materializers,

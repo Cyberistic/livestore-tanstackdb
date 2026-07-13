@@ -1,6 +1,6 @@
 /**
  * Structural types the {@link createLiveStoreDb} factory consumes. Mirrored
- * from `@cyberistic/livestore-tanstack-db`'s `types.ts` (kept identical
+ * from `livestore-tanstack-db`'s `types.ts` (kept identical
  * so consumers can pass a single TABLES object to both packages).
  */
 

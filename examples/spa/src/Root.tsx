@@ -11,8 +11,7 @@ import { VersionBadge } from './components/VersionBadge.tsx'
 
 import { storeRegistry, StoreRegistryProvider } from './livestore/store.ts'
 
-import { liveStoreDevtoolsPlugin } from '@cyberistic/livestore-tanstack-db/devtools'
-import { LiveStoreDevtoolsBridge } from './components/LiveStoreDevtoolsBridge.tsx'
+import { liveStoreDevtoolsPlugin, LiveStoreDevtoolsBridge } from 'livestore-tanstack-db/devtools'
 
 const errorBoundaryFallback = <div>Something went wrong</div>
 const suspenseFallback = <div>Loading app...</div>

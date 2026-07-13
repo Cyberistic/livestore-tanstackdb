@@ -1,15 +1,42 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from '@tanstack/react-db'
 
-import { devtoolsOn } from '@cyberistic/livestore-tanstack-db/devtools'
+import { devtoolsOn } from 'livestore-tanstack-db/devtools'
 
 import { uiState$ } from '../livestore/queries.ts'
 import { useAppStore } from '../livestore/store.ts'
 import { useTodoCollection } from '../db/todoCollection.ts'
 
+/**
+ * Main visible section of the todo list. The filter (all / active /
+ * completed) is pushed down to the LiveStore query via the
+ * collection's `where` option (Tier 0.5 / 1.3) so:
+ *
+ *   - LiveStore's reactive query emits a new snapshot when the filter
+ *     changes — no client-side `Array.filter` round-trip
+ *   - the auto-derived `deletedAt: null` predicate is still applied
+ *     (Tier 1.2) so soft-deleted rows never show up regardless
+ *     of filter
+ *   - the TanStack DB live query stays reactive because both the
+ *     upstream collection's snapshot AND the `q.where(...)` are
+ *     invalidated together
+ */
 export const MainSection: React.FC = () => {
   const store = useAppStore()
-  const todosCollection = useTodoCollection()
+  const { filter } = store.useQuery(uiState$) as unknown as {
+    filter: 'all' | 'active' | 'completed'
+  }
+
+  // The `where` is a top-level `useTable` option (Tier 0.5/1.3) —
+  // pushes the filter into LiveStore + TanStack DB.
+  const where =
+    filter === 'active'
+      ? { completed: false }
+      : filter === 'completed'
+        ? { completed: true }
+        : undefined
+  const todosCollection = useTodoCollection({ where })
+
   const { data: todos } = useLiveQuery(
     (q) =>
       q
@@ -18,41 +45,14 @@ export const MainSection: React.FC = () => {
           id: todo.id,
           text: todo.text,
           createdAt: todo.createdAt,
+          completed: todo.completed,
         }))
         .orderBy(({ todo }) => todo.createdAt, 'desc'),
-    [],
+    [todosCollection],
   )
-  const { data: todoCompletion } = useLiveQuery(
-    (q) =>
-      q
-        .from({ todo: todosCollection })
-        .select(({ todo }) => ({ id: todo.id, completed: todo.completed })),
-    [],
-  )
-  const { filter } = store.useQuery(uiState$) as unknown as {
-    filter: 'all' | 'active' | 'completed'
-  }
 
-  const visibleTodos = useMemo(() => {
-    if (!todos || !todoCompletion) return []
-    const completionById = new Map(
-      todoCompletion.map((todo) => [todo.id, todo.completed]),
-    )
-    const todosWithCompletion = todos.map((todo) => ({
-      ...todo,
-      completed: completionById.get(todo.id) ?? false,
-    }))
-    if (filter === 'active') {
-      return todosWithCompletion.filter((todo) => !todo.completed)
-    }
-    if (filter === 'completed') {
-      return todosWithCompletion.filter((todo) => todo.completed)
-    }
-    return todosWithCompletion
-  }, [todos, todoCompletion, filter])
-
-  // Listen for the last bulk-upsert event from the devtools bridge so we
-  // can highlight which rows arrived together.
+  // Listen for the last bulk-upsert event from the devtools bridge so
+  // we can highlight which rows arrived together.
   const [lastBulk, setLastBulk] = useState<{ count: number; rows: string[]; at: number } | null>(
     null,
   )
@@ -72,10 +72,8 @@ export const MainSection: React.FC = () => {
     return unsub
   }, [])
 
-  const handleTodoToggle = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const id = e.currentTarget.dataset.todoId
-      if (!id) return
+  const onToggle = useCallback(
+    (id: string) => {
       todosCollection.update(id, (draft) => {
         draft.completed = !draft.completed
       })
@@ -83,10 +81,8 @@ export const MainSection: React.FC = () => {
     [todosCollection],
   )
 
-  const handleTodoDelete = useCallback(
-    (e: React.MouseEvent<HTMLButtonElement>) => {
-      const id = e.currentTarget.dataset.todoId
-      if (!id) return
+  const onDelete = useCallback(
+    (id: string) => {
       todosCollection.delete(id)
     },
     [todosCollection],
@@ -132,22 +128,23 @@ export const MainSection: React.FC = () => {
         </div>
       )}
       <ul className="todo-list">
-        {visibleTodos.map((todo) => (
+        {(todos ?? []).map((todo) => (
           <li key={todo.id}>
             <div className="state">
               <input
                 type="checkbox"
                 className="toggle"
-                checked={todo.completed}
+                id={`todo-toggle-${todo.id}`}
                 data-todo-id={todo.id}
-                onChange={handleTodoToggle}
+                checked={Boolean(todo.completed)}
+                onChange={() => onToggle(todo.id)}
               />
-              <label>{todo.text}</label>
+              <label htmlFor={`todo-toggle-${todo.id}`}>{todo.text}</label>
               <button
                 type="button"
                 className="destroy"
                 data-todo-id={todo.id}
-                onClick={handleTodoDelete}
+                onClick={() => onDelete(todo.id)}
               />
             </div>
           </li>

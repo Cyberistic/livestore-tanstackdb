@@ -1,5 +1,5 @@
 import { Schema, SessionIdSymbol } from '@livestore/livestore'
-import { createLiveStoreDb } from '@cyberistic/livestore-prisma'
+import { createLiveStoreDb } from 'livestore-prisma'
 
 import { liveStoreDbConfig } from '../../prisma/generated/livestore/index.ts'
 

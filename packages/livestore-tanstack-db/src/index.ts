@@ -61,7 +61,11 @@ export type {
 export { createMutations } from './mutations.ts'
 
 export { LiveStoreProvider, useLiveStoreConfig } from './LiveStoreProvider.tsx'
-export type { LiveStoreProviderProps, LiveStoreConfig } from './LiveStoreProvider.tsx'
+export type {
+  LiveStoreProviderProps,
+  LiveStoreProviderSchema,
+  LiveStoreConfig,
+} from './LiveStoreProvider.tsx'
 
 export { getKeyFromSchema } from './getKeyFromSchema.ts'
 export { softDeleteLivePredicate } from './softDeleteLivePredicate.ts'

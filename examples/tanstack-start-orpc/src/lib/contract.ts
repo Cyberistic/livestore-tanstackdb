@@ -5,7 +5,7 @@ import { z } from 'zod'
  * oRPC contract for the `posts.*` namespace — five procedures that map
  * 1:1 to LiveStore events emitted by `createLiveStoreDb`.
  *
- * Tier 0.6 of `@cyberistic/livestore-tanstack-db` walks
+ * Tier 0.6 of `livestore-tanstack-db` walks
  * `classifyProcedure()` over the procedure names:
  *   - `posts.create` → insert (via `todoCreated` event override)
  *   - `posts.complete` → update (boolean toggle → `todoCompleted`)

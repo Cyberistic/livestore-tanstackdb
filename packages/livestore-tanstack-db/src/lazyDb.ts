@@ -27,7 +27,7 @@
  *
  * @example Consumer `db.ts` (~10 lines)
  * ```ts
- * import { createLazyDb } from "@cyberistic/livestore-prisma"
+ * import { createLazyDb } from "livestore-prisma"
  * import { lsdb } from "./livestore/schema"
  *
  * export const db = createLazyDb(lsdb.tables, {

@@ -1,6 +1,6 @@
 import { type ChangeEvent, type KeyboardEvent, useCallback, useMemo, useRef } from 'react'
 
-import { useCrud } from '@cyberistic/livestore-tanstack-db'
+import { useCrud } from 'livestore-tanstack-db'
 
 import { uiState$ } from '../livestore/queries.ts'
 import { events, schema, tables } from '../livestore/schema.ts'

@@ -76,7 +76,7 @@ bunx prisma generate
 
 ```ts
 // src/livestore/schema.ts
-import { createLiveStoreDb } from '@cyberistic/livestore-prisma'
+import { createLiveStoreDb } from 'livestore-prisma'
 import { Schema } from 'effect'
 import { Events, State } from '@livestore/livestore'
 
@@ -149,7 +149,7 @@ export { StoreRegistryProvider }
 ```ts
 // src/db/postCollection.ts
 import { createCollection } from '@tanstack/db'
-import { liveStoreCollectionOptions } from '@cyberistic/livestore-tanstack-db'
+import { liveStoreCollectionOptions } from 'livestore-tanstack-db'
 import { useAppStore } from '../livestore/store.ts'
 import { events, tables } from '../livestore/schema.ts'
 
@@ -194,7 +194,7 @@ the commit handlers from the `createLiveStoreDb` schema:
 ```tsx
 // src/db/postCollection.ts
 import { useMemo } from 'react'
-import { useTable } from '@cyberistic/livestore-tanstack-db'
+import { useTable } from 'livestore-tanstack-db'
 
 import { useAppStore } from '../livestore/store.ts'
 import { events, schema, tables } from '../livestore/schema.ts'
@@ -308,7 +308,7 @@ consumes.
 #### oRPC
 
 ```tsx
-import { createORPCAdapter } from '@cyberistic/livestore-tanstack-db'
+import { createORPCAdapter } from 'livestore-tanstack-db'
 
 const lessons = useTable('Lesson', {
   liveStore,
@@ -332,7 +332,7 @@ const lessons = useTable('Lesson', {
 #### tRPC
 
 ```tsx
-import { createTRPCAdapter } from '@cyberistic/livestore-tanstack-db'
+import { createTRPCAdapter } from 'livestore-tanstack-db'
 
 const lessons = useTable('Lesson', {
   liveStore,
@@ -423,21 +423,31 @@ posts.delete(post.id)
 
 <img width="1496" height="824" alt="image" src="https://github.com/user-attachments/assets/316aca38-618e-41b6-a1e4-3c0b34149754" />
 
-
-Add the TanStack Devtools panel with the LiveStore plugin:
+Add the LiveStore bridge + TanStack Devtools panel. The bridge
+auto-registers every collection created by `useTable(name)` — no
+manual `collections={...}` prop needed.
 
 ```tsx
 // src/Root.tsx
 import { TanStackDevtools } from '@tanstack/react-devtools'
-import { liveStoreDevtoolsPlugin } from '@cyberistic/livestore-tanstack-db/devtools'
+import {
+  LiveStoreDevtoolsBridge,
+  liveStoreDevtoolsPlugin,
+} from 'livestore-tanstack-db/devtools'
 
 export const App = () => (
   <StoreRegistryProvider storeRegistry={storeRegistry}>
     {/* ... your app ... */}
+    <LiveStoreDevtoolsBridge store={storeRegistry.getStore()} />
     <TanStackDevtools plugins={[liveStoreDevtoolsPlugin()]} />
   </StoreRegistryProvider>
 )
 ```
+
+`<LiveStoreDevtoolsBridge />` is a side-effect-only component — it
+returns `null`. Drop it in once and the per-table `useTable` calls
+auto-register their collections, so the panel shows per-collection
+`status:change` events without any consumer code.
 
 Also add the vite plugin for source injection:
 

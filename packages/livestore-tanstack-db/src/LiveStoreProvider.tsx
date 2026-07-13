@@ -4,14 +4,36 @@ import { createContext, useContext, useMemo } from 'react'
 
 import type { RpcClient } from './mutations.ts'
 
+/**
+ * The shape `LiveStoreProvider` accepts. We accept both:
+ * - the full `LiveStoreDb` object returned by `createLiveStoreDb(...)`
+ *   (the Tier 0.1 output: `{ tables, events, materializers, schema, readOnly }`)
+ * - the bare `LiveStoreSchema` (the `makeSchema(...)` output of a
+ *   hand-rolled schema)
+ *
+ * Internally we always normalize to the wider shape so per-table
+ * hooks can introspect `tables` / `events` / `schema` from a single
+ * context value. The bare-schema path synthesises a `tables: {}`
+ * (callers then provide `liveStore` to `useTable` explicitly).
+ */
+export type LiveStoreProviderSchema =
+  | LiveStoreSchema
+  | (LiveStoreSchema & {
+      readonly tables?: Record<string, unknown>
+      readonly events?: Record<string, unknown>
+      readonly materializers?: Record<string, unknown>
+      readonly readOnly?: Record<string, unknown>
+    })
+
 export interface LiveStoreProviderProps {
   /**
-   * The LiveStore schema returned by `createLiveStoreDb(...)` (or the
-   * hand-rolled `makeSchema(...)` block). Threaded down to per-table
-   * collection hooks (Tier 0.2) so they can introspect models and
-   * derive `getKey` / soft-delete predicates without re-importing.
+   * The LiveStore schema — either the bare `makeSchema(...)` output,
+   * or the wider `createLiveStoreDb(...)` object. Threaded down to
+   * per-table collection hooks (Tier 0.2) so they can introspect
+   * models and derive `getKey` / soft-delete predicates without
+   * re-importing.
    */
-  schema: LiveStoreSchema
+  schema: LiveStoreProviderSchema
   /**
    * Tier 0.6: the oRPC client used to translate TanStack DB mutations
    * into LiveStore events. When set, any
@@ -24,7 +46,7 @@ export interface LiveStoreProviderProps {
 }
 
 export interface LiveStoreConfig {
-  schema: LiveStoreSchema
+  schema: LiveStoreProviderSchema
   oRPC?: RpcClient
   /**
    * Tables that should NOT get client-side write APIs. Read by

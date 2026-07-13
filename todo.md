@@ -20,7 +20,7 @@
   Effect Schema. **Missing** for our integration: `id` introspection,
   soft-delete detection, `Schema.standardSchemaV1(...)` wrap. Those three
   are upstream candidates (not LiveStore-specific).
-- **`@cyberistic/livestore-prisma`** (this repo, to be published)
+- **`livestore-prisma`** (this repo, to be published)
   — uses the upstream generator, adds the LiveStore + TanStack DB glue.
   Tier 0.1, 0.2, 0.6, 2.1, 3.x live here.
 - **alchemy.run.ts** in this repo is the working template for Tier 3.2.
@@ -53,7 +53,7 @@ Top 3 the user picked:
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 1.1 | Auto-derive `getKey` from Prisma `@id` / `@@id` | ⏳ | We hardcode `getKey = (row) => row.id` everywhere today. Detected by walking `Schema.ast.propertySignatures` looking for the `isPrimaryKey` marker. If upstream Schema.standardSchemaV1 is present, look up via the property's `meta._id`. |
+| 1.1 | Auto-derive `getKey` from Prisma `@id` / `@@id` | 🚫 | Not planned. `getKey = (row) => row.id` stays hardcoded. |
 | 1.2 | Auto-coerce soft-delete (`deletedAt: null` → live row) | ⏳ | Default predicate: row.`deletedAt` is null/undefined. Auto-detect by looking for a field named `deletedAt` of type `Schema.NullOr(Schema.Date)`. |
 | 1.3 | `useTable(name, { where })` server-side filter | ⏳ | Combines 0.2 + 1.5 below. |
 | 1.4 | Bulk-import via `useTables({ teacherProfiles: { where }, lessons: { sort } })` | ✅ | Shipped in `useTable.ts` as `useTables(spec)`. Returns `{ [name]: Collection }`. Memoized via shared `collectionCache`. |
@@ -65,22 +65,22 @@ Top 3 the user picked:
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 2.1 | Lazy db proxy: `import { teacherProfiles }` keeps working post-migration | ✅ | Top 3 #3. **`createLazyDb(tables, options)` in `src/integration/lazyDb.ts`**, **`useDb()` in `src/integration/useDb.tsx`**, re-exported from `src/integration/index.ts`. The proxy resolves `db.<tableKey>` to a TanStack DB `Collection` (via `useTable`) when accessed inside any React render / event handler / effect (detected via `React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED.ReactCurrentDispatcher.current`), and to a Promise-based `LoaderProxy` (`preload()` / `findAll()` / `findOne()` / `insert()` / `update()` / `delete()`) when accessed outside React (TanStack Router loaders, Cloudflare Worker handlers, scripts). Server-only tables (LiveStore's `events` audit log, configured via `serverOnly: ['events']`) throw on access with a clear remediation hint. Model names are inferred from `events[*].name` so the consumer's `db.ts` stays at ~10 lines instead of 186. Pilot use case: `alkitab-alhakeem` can rewrite `import { useTeacherProfilesCollection } from "@/lib/db-client"` to `import { teacherProfiles } from "@/cyberistic/livestore-prisma/db"`, eliminating `scripts/refactor-db-client-hooks.ts` entirely. |
+| 2.1 | Lazy db proxy: `import { teacherProfiles }` keeps working post-migration | ✅ | Top 3 #3. **`createLazyDb(tables, options)` in `src/integration/lazyDb.ts`**, **`useDb()` in `src/integration/useDb.tsx`**, re-exported from `src/integration/index.ts`. The proxy resolves `db.<tableKey>` to a TanStack DB `Collection` (via `useTable`) when accessed inside any React render / event handler / effect (detected via `React.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED.ReactCurrentDispatcher.current`), and to a Promise-based `LoaderProxy` (`preload()` / `findAll()` / `findOne()` / `insert()` / `update()` / `delete()`) when accessed outside React (TanStack Router loaders, Cloudflare Worker handlers, scripts). Server-only tables (LiveStore's `events` audit log, configured via `serverOnly: ['events']`) throw on access with a clear remediation hint. Model names are inferred from `events[*].name` so the consumer's `db.ts` stays at ~10 lines instead of 186. Pilot use case: `alkitab-alhakeem` can rewrite `import { useTeacherProfilesCollection } from "@/lib/db-client"` to `import { teacherProfiles } from "@/livestore-prisma/db"`, eliminating `scripts/refactor-db-client-hooks.ts` entirely. |
 | 2.2 | Auto-injection of hook calls via TS transformer | 🚫 | Out of scope; would need a custom AST transform. Use 2.1 instead. |
 | 2.3 | Emit `Schema.standardSchemaV1(...)` in the generator | ✅ | Already shipped upstream in `prisma-effect-schema-generator@0.1.5+`. We bumped to `0.1.8`. The `standardSchemaV1 = "true"` flag in `schema.prisma` makes the generated `TodoSchema` / `EventSchema` come pre-wrapped, removing the Tier 0.4 `as any` cast that was previously needed. |
 | 2.4 | `useLiveQuery` with `select` projection returning RefProxy | ✅ | Verified in `MainSection.tsx` — `q.from({ todo: todos }).select(({ todo }) => ({ id: todo.id, text: todo.text }))` narrows the type to `{ id: string; text: string; ... }[]`. TanStack DB returns a RefProxy with `$synced`/`$origin`/`$key`/`$collectionId` metadata alongside the projected fields. |
 | 2.5 | Re-export `useLiveQuery` etc. from the integration | ✅ | Re-exported from `packages/livestore-tanstack-db/src/index.ts`. |
 | 2.6 | Codemod `createTableMigration(from: "electric", ...)` | 🚫 | Not building. |
-| 2.7 | Combined LiveStore + TanStack DB Devtools | ✅ | **Shipped.** `@cyberistic/livestore-tanstack-db/devtools` subpath exposes `liveStoreDevtoolsPlugin()` for `<TanStackDevtools>`, plus `useLiveStoreDevtoolsBridge(store)` that wires the LiveStore store + every TanStack DB collection into a typed devtools bus. Panel renders three sections: session sync status, per-collection TanStack DB status (`idle / loading / ready / error / cleaned-up`), and a 500-entry local commit log (with pending + synced seqNums + timestamps). Coexists with the existing `@livestore/devtools-vite` panel. |
+| 2.7 | Combined LiveStore + TanStack DB Devtools | ✅ | **Shipped.** `livestore-tanstack-db/devtools` subpath exposes `liveStoreDevtoolsPlugin()` for `<TanStackDevtools>`, plus `useLiveStoreDevtoolsBridge(store)` that wires the LiveStore store + every TanStack DB collection into a typed devtools bus. Panel renders three sections: session sync status, per-collection TanStack DB status (`idle / loading / ready / error / cleaned-up`), and a 500-entry local commit log (with pending + synced seqNums + timestamps). Coexists with the existing `@livestore/devtools-vite` panel. |
 | 2.8 | Hot-reload-safe: editing `schema.prisma` regenerates Effect + LiveStore + TanStack types in one go | ⏳ | `bun prisma generate` already does Effect. LiveStore tables + TanStack collections need a co-compiler step. |
 
 ## Tier 3 — "would be really nice"
 
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
-| 3.1 | Single `<LiveStoreProvider schema={...} oRPC={...}>` | ⏳ | Wraps `StoreRegistryProvider` + provider for `useAppStore` + per-table collection provider. |
-| 3.2 | `alchemy.run.ts` Cloudflare Worker template emitted alongside the schema | ⏳ | We already have a working template in `alchemy.run.ts` here. Extract into a `cloudflare-template/` directory. |
-| 3.3 | `prisma db push` ↔ wrangler D1 migrations round-trip | ⏳ | Currently unhooked. Could be a `bun prisma migrate diff` + `wrangler d1 migrations apply` script. |
+| 3.1 | Single `<LiveStoreProvider schema={...} oRPC={...}>` | ✅ | Shipped. `LiveStoreProvider.schema` accepts the full `createLiveStoreDb(...)` shape (or the bare `makeSchema(...)` output). The `as unknown as ...` cast is gone from the tanstack-start-orpc example. Internally `useTable` reads `tables` / `events` / `schema` from the wider context. `oRPC` is optional and auto-derives into `useTable(name, { rpc: { config } })` calls. |
+| 3.2 | `alchemy.run.ts` Cloudflare Worker template emitted alongside the schema | 🚫 | Not planned. Working template stays at `alchemy.run.ts`; no separate `cloudflare-template/` extraction. |
+| 3.3 | `prisma db push` ↔ wrangler D1 migrations round-trip | 🚫 | Not planned. |
 | 3.4 | Per-row access control on LiveStore side | 🚫 | Out of scope; auth lives in the oRPC layer. |
 | 3.5 | Schema diff tool that emits `v1.<Table>Migrated` events for column adds | 🚫 | Out of scope; will be in 4.x async layer. |
 | 3.6 | `useCrud(name)` hook | ✅ | Shipped in `packages/livestore-tanstack-db/src/useCrud.ts`. `const [c, { create, update, remove }] = useCrud<PostRow>('Post')`. `create` auto-generates `id` via `crypto.randomUUID()`, `update` supports both partial merge and draft-mutation forms, `remove` takes id. Built on top of `useTable`, inherits all its options. |

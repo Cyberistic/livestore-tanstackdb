@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react'
 import { useLiveQuery } from '@tanstack/react-db'
 
-import { useTable } from '@cyberistic/livestore-tanstack-db'
+import { useTable } from 'livestore-tanstack-db'
 
 import { uiState$ } from '../livestore/queries.ts'
 import { events, rpcConfig } from '../livestore/schema.ts'

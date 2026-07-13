@@ -5,7 +5,7 @@ import { createRouterClient } from '@orpc/server'
 import { createIsomorphicFn } from '@tanstack/react-start'
 import { getRequestHeaders } from '@tanstack/react-start/server'
 
-import { createORPCAdapter } from '@cyberistic/livestore-tanstack-db'
+import { createORPCAdapter } from 'livestore-tanstack-db'
 
 import { router } from './orpc.ts'
 
@@ -43,7 +43,7 @@ export const orpc: RouterClient<typeof router> = getORPCClient()
 
 /**
  * `posts.*` namespace adapted into the `RpcClient` shape that
- * `@cyberistic/livestore-tanstack-db` consumes. This avoids the
+ * `livestore-tanstack-db` consumes. This avoids the
  * `as unknown as RpcClient` cast and validates that every leaf is a
  * callable oRPC procedure.
  */

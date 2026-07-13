@@ -9,8 +9,6 @@
       "name": "spa-example",
       "version": "0.1.0",
       "dependencies": {
-        "@cyberistic/livestore-prisma": "file:../../packages/livestore-prisma",
-        "@cyberistic/livestore-tanstack-db": "file:../../packages/livestore-tanstack-db",
         "@livestore/adapter-web": "0.4.0",
         "@livestore/livestore": "0.4.0",
         "@livestore/peer-deps": "0.4.0",
@@ -23,6 +21,8 @@
         "@tanstack/devtools-utils": "^0.6.0",
         "@tanstack/react-db": "0.1.92",
         "effect": "3.21.4",
+        "livestore-prisma": "file:../../packages/livestore-prisma",
+        "livestore-tanstack-db": "file:../../packages/livestore-tanstack-db",
         "prisma": "^7.8.0",
         "react": "19.2.3",
         "react-dom": "19.2.3",
@@ -55,8 +55,6 @@
       "name": "tanstack-start-orpc-example",
       "version": "0.1.0",
       "dependencies": {
-        "@cyberistic/livestore-prisma": "file:../../packages/livestore-prisma",
-        "@cyberistic/livestore-tanstack-db": "file:../../packages/livestore-tanstack-db",
         "@livestore/adapter-web": "0.4.0",
         "@livestore/livestore": "0.4.0",
         "@livestore/peer-deps": "0.4.0",
@@ -72,6 +70,8 @@
         "@tanstack/react-start": "1.168.27",
         "@tanstack/start-server-core": "1.169.16",
         "effect": "3.21.4",
+        "livestore-prisma": "file:../../packages/livestore-prisma",
+        "livestore-tanstack-db": "file:../../packages/livestore-tanstack-db",
         "react": "19.2.3",
         "react-dom": "19.2.3",
         "todomvc-app-css": "2.4.3",
@@ -93,7 +93,7 @@
       },
     },
     "packages/livestore-prisma": {
-      "name": "@cyberistic/livestore-prisma",
+      "name": "livestore-prisma",
       "version": "0.1.0",
       "bin": {
         "prisma-livestore-generator": "./prisma-livestore-generator.cjs",
@@ -117,7 +117,7 @@
       },
     },
     "packages/livestore-tanstack-db": {
-      "name": "@cyberistic/livestore-tanstack-db",
+      "name": "livestore-tanstack-db",
       "version": "0.1.0",
       "dependencies": {
         "@standard-schema/spec": "^1.1.0",
@@ -238,10 +238,6 @@
     "@cloudflare/workers-types": ["@cloudflare/workers-types@4.20260702.1", "", {}, "sha512-mOhf5TUEB1m2vPrxtqoIGfz0fUC9xyxRDx5gWHy5s+OCo6dcV+g7wI1R7gYCMFohhqF/2y2xeKVwMwCJjfn/WA=="],
 
     "@cspotcode/source-map-support": ["@cspotcode/source-map-support@0.8.1", "", { "dependencies": { "@jridgewell/trace-mapping": "0.3.9" } }, "sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw=="],
-
-    "@cyberistic/livestore-prisma": ["@cyberistic/livestore-prisma@workspace:packages/livestore-prisma"],
-
-    "@cyberistic/livestore-tanstack-db": ["@cyberistic/livestore-tanstack-db@workspace:packages/livestore-tanstack-db"],
 
     "@effect/ai": ["@effect/ai@0.35.0", "", { "dependencies": { "find-my-way-ts": "^0.1.6" }, "peerDependencies": { "@effect/experimental": "^0.60.0", "@effect/platform": "^0.96.0", "@effect/rpc": "^0.75.0", "effect": "^3.21.0" } }, "sha512-VOYFBN/TpHC0sB5AhUGOEJzOTEnuo2bbDtQcDDsU7ffHaE8ZbqZj1CuSHgifbmqMaY9+xofsKMazQZ3jlZfPSw=="],
 
@@ -1145,6 +1141,10 @@
 
     "lightningcss-win32-x64-msvc": ["lightningcss-win32-x64-msvc@1.32.0", "", { "os": "win32", "cpu": "x64" }, "sha512-Amq9B/SoZYdDi1kFrojnoqPLxYhQ4Wo5XiL8EVJrVsB8ARoC1PWW6VGtT0WKCemjy8aC+louJnjS7U18x3b06Q=="],
 
+    "livestore-prisma": ["livestore-prisma@workspace:packages/livestore-prisma"],
+
+    "livestore-tanstack-db": ["livestore-tanstack-db@workspace:packages/livestore-tanstack-db"],
+
     "loglevel": ["loglevel@1.9.2", "", {}, "sha512-HgMmCqIJSAKqo68l0rS2AanEWfkxaZ5wNiEFb5ggm08lDs9Xl2KxBlX3PTcaD2chBM1gXAYf491/M2Rv8Jwayg=="],
 
     "long": ["long@5.3.2", "", {}, "sha512-mNAgZ1GmyNhD7AuqnTG3/VQ26o760+ZYBPKjPvugO8+nLbYfX6TVpJPseBvopbdY+qpZ/lKUnmEc1LeZYS3QAA=="],
@@ -1443,8 +1443,6 @@
 
     "@babel/generator/@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
-    "@cyberistic/livestore-tanstack-db/@types/node": ["@types/node@22.20.1", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-EANqOCF9QFyra+4pfxUcX9STKJpCLjMbObVzljIJomAWSnuSIEAvyzEU53GaajbXJEgdh0iEcPL+DGvpUd4k1Q=="],
-
     "@effect/platform-node/ws": ["ws@8.21.0", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g=="],
 
     "@effect/platform-node-shared/ws": ["ws@8.21.0", "", { "peerDependencies": { "bufferutil": "^4.0.1", "utf-8-validate": ">=5.0.2" }, "optionalPeers": ["bufferutil", "utf-8-validate"] }, "sha512-Vsp28b7DRcimFQvrqu2Wek3z1iYxDCWqHYB8Qsnk/S4RfaCQzPGPyBNuVjJV3cd6UiKtUtp6sNM77gWvzcCH+g=="],
@@ -1517,6 +1515,8 @@
 
     "find-process/chalk": ["chalk@4.1.2", "", { "dependencies": { "ansi-styles": "^4.1.0", "supports-color": "^7.1.0" } }, "sha512-oKnbhFyRIXpUuez8iBMmyEa4nbj4IOQyuhc/wy9kY7/WVPcwIO9VA668Pu8RkO7+0G76SLROeyw9CpQ061i4mA=="],
 
+    "livestore-tanstack-db/@types/node": ["@types/node@22.20.1", "", { "dependencies": { "undici-types": "~6.21.0" } }, "sha512-EANqOCF9QFyra+4pfxUcX9STKJpCLjMbObVzljIJomAWSnuSIEAvyzEU53GaajbXJEgdh0iEcPL+DGvpUd4k1Q=="],
+
     "miniflare/undici": ["undici@7.14.0", "", {}, "sha512-Vqs8HTzjpQXZeXdpsfChQTlafcMQaaIwnGwLam1wudSSjlJeQ3bw1j+TLPePgrCnCpUXx7Ba5Pdpf5OBih62NQ=="],
 
     "miniflare/zod": ["zod@3.22.3", "", {}, "sha512-EjIevzuJRiRPbVH4mGc8nApb/lVLKVpmUhAaR5R5doKGfAnGJ6Gr3CViAVjP+4FWSxCsybeWQdcgCtbX+7oZug=="],
@@ -1561,8 +1561,6 @@
 
     "wrap-ansi-cjs/strip-ansi": ["strip-ansi@6.0.1", "", { "dependencies": { "ansi-regex": "^5.0.1" } }, "sha512-Y38VPSHcqkFrCpFnQ9vuSXmquuv5oXOKpGeT6aGrr3o3Gc9AlVa6JBfUSOCnbxGGZF+/0ooI7KrPuUSztUdU5A=="],
 
-    "@cyberistic/livestore-tanstack-db/@types/node/undici-types": ["undici-types@6.21.0", "", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
-
     "@livestore/devtools-vite/@livestore/adapter-web/@livestore/utils": ["@livestore/utils@0.4.0", "", { "dependencies": { "@effect/platform-node": "0.106.0", "@standard-schema/spec": "1.1.0", "nanoid": "5.0.9", "pretty-bytes": "7.0.1", "qrcode-generator": "2.0.4" }, "peerDependencies": { "@effect/ai": "^0.35.0", "@effect/cli": "^0.75.1", "@effect/cluster": "^0.58.2", "@effect/experimental": "^0.60.0", "@effect/opentelemetry": "^0.63.0", "@effect/platform": "^0.96.1", "@effect/platform-browser": "^0.76.0", "@effect/platform-bun": "^0.89.0", "@effect/printer": "^0.49.0", "@effect/printer-ansi": "^0.49.0", "@effect/rpc": "^0.75.1", "@effect/sql": "^0.51.1", "@effect/typeclass": "^0.40.0", "@effect/vitest": "^0.29.0", "@opentelemetry/api": "^1.9.0", "@opentelemetry/resources": "^2.2.0", "effect": "^3.21.2" } }, "sha512-908HgyGyp/PuYGA2X6PBdkXjbTGAuPwi6VHiXhnLFiiOAaRJ6uYjqUIcrW7IkrR76+rkkTVx0xVcZsbtUHi00Q=="],
 
     "@octokit/plugin-paginate-rest/@octokit/types/@octokit/openapi-types": ["@octokit/openapi-types@24.2.0", "", {}, "sha512-9sIH3nSUttelJSXUrmGzl7QUBFul0/mB8HRYl3fOlgHbIWG+WnYDXU3v/2zMtAvuzZ/ed00Ei6on975FhBfzrg=="],
@@ -1586,6 +1584,8 @@
     "alchemy/wrangler/unenv": ["unenv@2.0.0-rc.24", "", { "dependencies": { "pathe": "^2.0.3" } }, "sha512-i7qRCmY42zmCwnYlh9H2SvLEypEFGye5iRmEMKjcGi7zk9UquigRjFtTLz0TYqr0ZGLZhaMHl/foy1bZR+Cwlw=="],
 
     "alchemy/wrangler/workerd": ["workerd@1.20260708.1", "", { "optionalDependencies": { "@cloudflare/workerd-darwin-64": "1.20260708.1", "@cloudflare/workerd-darwin-arm64": "1.20260708.1", "@cloudflare/workerd-linux-64": "1.20260708.1", "@cloudflare/workerd-linux-arm64": "1.20260708.1", "@cloudflare/workerd-windows-64": "1.20260708.1" }, "bin": { "workerd": "bin/workerd" } }, "sha512-WAK+Kt/VVCSldH2qSr8lx46XCJ4Q+bdlHNaFqUtOHthBEIB8C1N8HVW+VOLrxDoTCk0NGNv0zajnBeQK4JOB9w=="],
+
+    "livestore-tanstack-db/@types/node/undici-types": ["undici-types@6.21.0", "", {}, "sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ=="],
 
     "string-width-cjs/strip-ansi/ansi-regex": ["ansi-regex@5.0.1", "", {}, "sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ=="],
 

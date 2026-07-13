@@ -142,7 +142,7 @@ const rowsEqual = (a: LiveStoreRow, b: LiveStoreRow): boolean => {
  * @example
  * ```ts
  * import { createCollection } from '@tanstack/db'
- * import { liveStoreCollectionOptions } from '@cyberistic/livestore-tanstack-db'
+ * import { liveStoreCollectionOptions } from 'livestore-tanstack-db'
  *
  * const todosCollection = createCollection(
  *   liveStoreCollectionOptions({
@@ -318,5 +318,4 @@ export function liveStoreCollectionOptions<T extends LiveStoreRow>(
   }
 }
 
-// Re-export createCollection for convenience
 export { createCollection }

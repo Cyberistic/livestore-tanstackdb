@@ -64,8 +64,6 @@ const useLiveStore = (): UseTableLiveStore | null => {
 // Pure helpers (no module-level state)
 // ─────────────────────────────────────────────────────────────────────
 
-const VERSION = 'v1'
-
 const lcFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1)
 const ucFirst = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
@@ -519,6 +517,16 @@ export const getCollection = <TName extends TableName>(
     }),
   )
   collectionCache.set(key, collection)
+  // Tier 2.7: auto-register the collection with the devtools bridge
+  // so consumers don't have to pass `collections={...}` explicitly
+  // to `<LiveStoreDevtoolsBridge>`. The devtools panel shows
+  // per-collection `status:change` events for every collection
+  // created by `useTable`.
+  if (typeof window !== 'undefined') {
+    void import('./devtools/bridge.ts').then(({ registerCollection }) => {
+      registerCollection(name, collection)
+    })
+  }
   return collection
 }
 
@@ -623,5 +631,4 @@ export const preloadTable = <TName extends TableName>(
   options: UseTableOptions<TName> & { liveStore: UseTableLiveStore },
 ): Collection<LiveStoreRow, string> => getCollection(name, options)
 
-/** Type alias re-export. */
 export type { RpcClient, RpcConfig }

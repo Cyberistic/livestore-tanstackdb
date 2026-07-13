@@ -14,3 +14,7 @@ export { LiveStoreDevtoolsPanel } from './panel.tsx'
 export { useLiveStoreDevtoolsBridge, registerCollection } from './bridge.ts'
 export { devtoolsEmit, devtoolsOn } from './eventClient.ts'
 export type { LiveStoreDevtoolsEvents } from './events.ts'
+
+/** Drop-in bridge component. */
+export { LiveStoreDevtoolsBridge } from './LiveStoreDevtoolsBridge.tsx'
+export type { LiveStoreDevtoolsBridgeProps } from './LiveStoreDevtoolsBridge.tsx'
