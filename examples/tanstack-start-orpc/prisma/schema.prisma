@@ -16,6 +16,13 @@ generator effect_client {
   exportModelNames    = "true"
   exportModelNameType = "true"
   standardSchemaV1    = "true"
+  dateAs              = "Date"
+}
+
+generator livestore {
+  provider          = "../../packages/livestore-prisma/prisma-livestore-generator.cjs"
+  output            = "./generated/livestore"
+  clientSchemasPath = "./generated/client-schemas/index.ts"
 }
 
 model Todo {

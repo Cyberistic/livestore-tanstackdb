@@ -1,12 +1,7 @@
 import { Schema, SessionIdSymbol } from '@livestore/livestore'
 import { createLiveStoreDb } from '@cyberistic/livestore-prisma'
 
-import {
-  PRIMARY_KEY_COLUMNS,
-  SOFT_DELETE_COLUMNS,
-  TABLES,
-  TodoSchema,
-} from '../../prisma/generated/client-schemas/index.ts'
+import { liveStoreDbConfig } from '../../prisma/generated/livestore/index.ts'
 
 /**
  * UI session state (one row per session, stored in OPFS only). Includes
@@ -21,11 +16,8 @@ const UiStateSchema = Schema.Struct({
   ),
 })
 
-const lsdb = createLiveStoreDb({
-  models: { Todo: TodoSchema },
-  tables: TABLES,
-  primaryKeyColumns: PRIMARY_KEY_COLUMNS,
-  softDeleteColumns: SOFT_DELETE_COLUMNS,
+export const { tables, events, materializers, schema, readOnly } = createLiveStoreDb({
+  ...liveStoreDbConfig,
   events: {
     // Tier 1.7 — bulk-insert. Emits a single `v1.TodoBulkUpserted` event
     // so `useCrud('Todo').bulkUpsert([...])` collapses N round-trips
@@ -42,8 +34,6 @@ const lsdb = createLiveStoreDb({
     },
   },
 })
-
-export const { tables, events, materializers, schema, readOnly } = lsdb
 
 /**
  * oRPC RPC config consumed by `useTable(name, { rpc: {...} })`. Tier

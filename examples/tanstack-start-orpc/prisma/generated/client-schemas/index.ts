@@ -8,15 +8,15 @@ export const EventSchema = Schema.standardSchemaV1(Schema.Struct({
   storeId: Schema.String,
   name: Schema.String,
   args: Schema.String,
-  createdAt: Schema.DateFromSelf,
+  createdAt: Schema.Date,
 }))
 
 export const TodoSchema = Schema.standardSchemaV1(Schema.Struct({
   id: Schema.String,
   text: Schema.String,
   completed: Schema.Boolean,
-  createdAt: Schema.DateFromSelf,
-  deletedAt: Schema.NullOr(Schema.DateFromSelf),
+  createdAt: Schema.Date,
+  deletedAt: Schema.NullOr(Schema.Date),
 }))
 
 export const PRIMARY_KEY_COLUMNS = {

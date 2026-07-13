@@ -24,7 +24,11 @@ export const MainSection = () => {
     rpc: { client: rpcPosts, config: rpcConfig },
   })
   const { data: todos } = useLiveQuery(
-    (q) => q.from({ todo: todosCollection }).select(({ todo }) => todo),
+    (q) =>
+      q
+        .from({ todo: todosCollection })
+        .select(({ todo }) => todo)
+        .orderBy(({ todo }) => todo.createdAt, 'desc'),
     [],
   )
 

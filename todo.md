@@ -46,7 +46,7 @@ Top 3 the user picked:
 | 0.1 | `createLiveStoreDb(schema)` factory — emits tables + events + materializers + makeSchema | ✅ | Shipped in `packages/livestore-prisma/src/createLiveStoreDb.ts`. Auto-derives `getKey` from `PRIMARY_KEY_COLUMNS`, soft-delete predicate from `SOFT_DELETE_COLUMNS`, per-field boolean toggle events from `TABLES[m].columns`. App uses it now (`src/livestore/schema.ts`). |
 | 0.2 | `useTable(name)` hook — auto-creates `useLiveQuery` source per model | ✅ | Shipped in `packages/livestore-tanstack-db/src/useTable.ts`. App uses it (`src/db/todoCollection.ts`). Auto-derives `commitInsert/Update/Delete` from events. Supports `{ where, rpc, liveStore, noContext }`. Fixed 3 bugs during app migration (wrong event key lookup, missing boolean-toggle detection in `makeCommitUpdate`, handler keys `commitX` vs `onX`). |
 | 0.3 | `useTable(name).insert/update/delete` that round-trips through LiveStore AND oRPC | ⏳ | Needs 0.6 plumbing + an oRPC integration helper. |
-| 0.4 | Prisma row type IS LiveStore row type IS TanStack DB row type | 🚧 | Known issue: Schema.Any → Schema.AnyNoContext variance. Factory currently casts through `as any`. Long-term: upstream `Schema.standardSchemaV1` wrap would remove the cast. |
+| 0.4 | Prisma row type IS LiveStore row type IS TanStack DB row type | ✅ | Resolved via 2.3 — `prisma-effect-schema-generator@0.1.8` ships pre-wrapped `Schema.standardSchemaV1`, eliminating the boundary `as any` cast. |
 | 0.5 | `useTable(name, { where: { ... } })` filtered collections | ⏳ | Should "just work" once 0.2 lands because TanStack DB's `where()` is the underlying mechanism. |
 
 ## Tier 1 — quality of life that should "just work"
