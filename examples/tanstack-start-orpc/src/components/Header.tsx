@@ -1,14 +1,12 @@
 import { type ChangeEvent, type KeyboardEvent, useCallback } from 'react'
 
-import { useCrud, type RpcClient } from '@cyberistic/livestore-tanstack-db'
+import { useCrud } from '@cyberistic/livestore-tanstack-db'
 
 import { uiState$ } from '../livestore/queries.ts'
 import { events, rpcConfig } from '../livestore/schema.ts'
 import { useAppStore } from '../livestore/store.ts'
-import { orpc } from '../lib/orpc-client.ts'
+import { rpcPosts } from '../lib/orpc-client.ts'
 import type { TodoRow } from './types.ts'
-
-const rpcPosts = orpc.posts as unknown as RpcClient
 
 /**
  * Top-of-app header: input field that creates a Todo on Enter. The

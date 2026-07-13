@@ -295,14 +295,25 @@ remove(post.id)
 
 ### 6. RPC write-back (Tier 0.6)
 
-For apps that need to round-trip mutations through a server (oRPC,
-tRPC, fetch, hand-rolled clients), `useTable` accepts an RPC config:
+For apps that need to round-trip mutations through a server, `useTable`
+accepts an RPC config. The adapter you choose depends on your RPC
+library:
+
+- **oRPC** and direct-call clients: use `createORPCAdapter`.
+- **tRPC**: use `createTRPCAdapter` (wraps `proc.mutate(input)`).
+
+Both return the same normalized `RpcClient` shape that `useTable`
+consumes.
+
+#### oRPC
 
 ```tsx
+import { createORPCAdapter } from '@cyberistic/livestore-tanstack-db'
+
 const lessons = useTable('Lesson', {
   liveStore,
   rpc: {
-    client: createRpcAdapter(orpc),   // any nested object of functions
+    client: createORPCAdapter(orpc, { namespaces: ['teacher'] }),
     config: {
       teacher: {
         createLesson: {},            // auto-classified as `insert`
@@ -312,6 +323,26 @@ const lessons = useTable('Lesson', {
         upsertLesson: { event: 'lessonUpserted' },
         // explicit map: translate the row into the rpc input shape
         updateOwnProfile: { map: (row) => ({ bio: row.bio }) },
+      },
+    },
+  },
+})
+```
+
+#### tRPC
+
+```tsx
+import { createTRPCAdapter } from '@cyberistic/livestore-tanstack-db'
+
+const lessons = useTable('Lesson', {
+  liveStore,
+  rpc: {
+    client: createTRPCAdapter(trpc, { namespaces: ['teacher'] }),
+    config: {
+      teacher: {
+        createLesson: {},            // auto-classified as `insert`
+        updateLesson: {},            // auto-classified as `update`
+        deleteLesson: {},            // auto-classified as `delete`
       },
     },
   },
@@ -329,35 +360,27 @@ Procedure-name heuristics auto-classify each proc into
 | (fallback)                        | both insert + update (upsert-by-name) |
 
 Override per-proc with `{ event: 'lessonUpserted' }` to pin a specific
-LiveStore event (the event name suffix `Created` / `Deleted` /
-anything else disambiguates the mutation kind).
+LiveStore event (the event name suffix `Created` / `Deleted` / anything
+else disambiguates the mutation kind).
 
-#### `createRpcAdapter(client, { namespaces? })`
+#### Adapter options
 
-Validates that any nested object of callable functions matches the
-`RpcClient` shape. RPC-agnostic — works with oRPC, tRPC, fetch
-wrappers, or plain objects:
+Both adapters accept the same options:
 
 ```tsx
-import { createRpcAdapter } from '@cyberistic/livestore-tanstack-db'
-
-// Plain object
-const rpc = createRpcAdapter({
-  teacher: {
-    createLesson: (input) => fetch('/api/teacher/lesson', { method: 'POST', body: JSON.stringify(input) }),
-    deleteLesson: (input) => fetch(`/api/teacher/lesson/${input.id}`, { method: 'DELETE' }),
-  },
+createORPCAdapter(client, {
+  namespaces: ['teacher'],   // only include these top-level namespaces
+  skipValidation: true,      // skip console.warn for missing/invalid procs
 })
 
-// Restrict to specific namespaces (skip internal ones)
-const rpc = createRpcAdapter(orpc, { namespaces: ['teacher', 'student'] })
-
-// Skip validation warnings if you trust the shape
-const rpc = createRpcAdapter(orpc, { skipValidation: true })
+createTRPCAdapter(client, {
+  namespaces: ['teacher'],
+  skipValidation: true,
+})
 ```
 
-Missing procedures become `undefined` in the output — the mutation
-layer treats them as no-ops.
+Missing procedures become `undefined` in the output — the mutation layer
+treats them as no-ops.
 
 ### 7. React components
 

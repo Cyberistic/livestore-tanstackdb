@@ -32,7 +32,21 @@ const COLUMN_TYPE_TO_SCHEMA = {
   string: () => Schema.String,
   number: () => Schema.Number,
   boolean: () => Schema.Boolean,
-  date: () => Schema.DateFromString,
+  date: () => {
+    // LiveStore persists dates as ISO strings. Inputs can be strings
+    // (from SQLite, server responses, or old persisted rows) or Date
+    // instances (from in-memory creation). Accept both on the type side
+    // and encode back to ISO string; decoding normalizes strings to Date.
+    return Schema.transform(
+      Schema.String,
+      Schema.Union(Schema.String, Schema.DateFromSelf),
+      {
+        strict: true,
+        decode: (s) => new Date(s),
+        encode: (d) => (typeof d === 'string' ? d : d.toISOString()),
+      },
+    ) as unknown as Schema.Schema<Date, string, never>
+  },
   bytes: () => Schema.Uint8Array,
   json: () => Schema.Unknown,
   unknown: () => Schema.Unknown,

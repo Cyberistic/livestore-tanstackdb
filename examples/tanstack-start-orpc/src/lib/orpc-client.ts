@@ -1,23 +1,25 @@
 import { createORPCClient } from '@orpc/client'
 import { RPCLink } from '@orpc/client/fetch'
 import type { RouterClient } from '@orpc/server'
+import { createRouterClient } from '@orpc/server'
 import { createIsomorphicFn } from '@tanstack/react-start'
+import { getRequestHeaders } from '@tanstack/react-start/server'
+
+import { createORPCAdapter } from '@cyberistic/livestore-tanstack-db'
 
 import { router } from './orpc.ts'
-import { orpcServer } from './orpc-client.server.ts'
-
-import type { RpcClient } from '@cyberistic/livestore-tanstack-db'
 
 /**
- * Typed oRPC client used by `useTable` / `useCrud` and direct React
- * Query calls.
+ * Typed isomorphic oRPC client used by `useTable` / `useCrud` and direct
+ * React Query calls.
  *
- * Server-side: `orpc-client.server.ts` exposes a direct router call
- * (no HTTP loopback). The actual `.server` import is hidden inside
- * that file so the import-protection plugin doesn't break the client
- * bundle.
- * Client-side: wraps the same `/api/rpc` route the server handler
- * exposes.
+ * Server-side: uses `createRouterClient(router, ...)` for direct router
+ * invocation with no HTTP loopback. `getRequestHeaders()` is forwarded as
+ * initial context so procedures that need request headers can access them.
+ * This matches the "Optimize SSR" pattern from the oRPC TanStack Start
+ * adapter docs.
+ *
+ * Client-side: wraps the same `/api/rpc` route the server handler exposes.
  *
  * The resulting object's structure matches the contract:
  *   `orpc.posts.list()`, `orpc.posts.create({ text })`,
@@ -25,7 +27,11 @@ import type { RpcClient } from '@cyberistic/livestore-tanstack-db'
  *   `orpc.posts.bulkSeed({ rows })`.
  */
 const getORPCClient = createIsomorphicFn()
-  .server((): RouterClient<typeof router> => orpcServer)
+  .server((): RouterClient<typeof router> => createRouterClient(router, {
+    context: async () => ({
+      headers: getRequestHeaders(),
+    }),
+  }))
   .client((): RouterClient<typeof router> => {
     const link = new RPCLink({
       url: `${window.location.origin}/api/rpc`,
@@ -36,9 +42,11 @@ const getORPCClient = createIsomorphicFn()
 export const orpc: RouterClient<typeof router> = getORPCClient()
 
 /**
- * `posts.*` namespace cast to the loose `RpcClient` shape that
- * `@cyberistic/livestore-tanstack-db` consumes (the package's
- * `RpcClient` is `Record<string, Record<string, Procedure | undefined>>`
- * — intentionally permissive so any nested callable object works).
+ * `posts.*` namespace adapted into the `RpcClient` shape that
+ * `@cyberistic/livestore-tanstack-db` consumes. This avoids the
+ * `as unknown as RpcClient` cast and validates that every leaf is a
+ * callable oRPC procedure.
  */
-export const rpcPosts: RpcClient = orpc.posts as unknown as RpcClient
+export const rpcPosts = createORPCAdapter(orpc.posts, {
+  namespaces: ['posts'],
+})

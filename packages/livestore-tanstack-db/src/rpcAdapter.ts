@@ -3,31 +3,17 @@
  * wrappers, hand-rolled clients) into the
  * {@link RpcClient} shape that `useTable(name, { rpc })` expects.
  *
- * The integration is RPC-agnostic: any nested object of callable
- * functions matches the `RpcClient` shape. The `createRpcAdapter`
- * helper below validates that an arbitrary input conforms to the
- * expected shape at runtime (warns on bad entries, never throws —
- * missing procedures become no-ops at the call site).
+ * The integration is RPC-agnostic at the call site, but the adapters are
+ * library-specific because the procedure-call conventions differ:
  *
- * @example
- * ```ts
- * import { createRpcAdapter } from '@cyberistic/livestore-tanstack-db'
- * import { orpc } from '@/lib/orpc'
+ * - **oRPC / plain objects:** `client.ns.proc(input)` — direct function
+ *   call. Use {@link createORPCAdapter}.
+ * - **tRPC:** `client.ns.proc.mutate(input)` — procedure proxy with a
+ *   `.mutate` method. Use {@link createTRPCAdapter}.
  *
- * const rpc = createRpcAdapter(orpc, {
- *   // optional: only validate specific namespaces; the rest are skipped
- *   namespaces: ['teacher', 'student'],
- * })
- *
- * const lessons = useTable('Lesson', {
- *   rpc: { client: rpc, config: { teacher: { createLesson: {} } } },
- * })
- * ```
+ * Both return the same normalized `RpcClient` shape that `useTable` consumes.
  */
 import type { RpcClient, RpcProcedure } from './mutations.ts'
-
-/** Shape that `createRpcAdapter` walks. Anything with this shape is accepted. */
-type AnyRpcClient = Record<string, unknown>
 
 export interface CreateRpcAdapterOptions {
   /**
@@ -45,41 +31,14 @@ export interface CreateRpcAdapterOptions {
   skipValidation?: boolean
 }
 
-/**
- * Adapt any nested object of callable functions into the `RpcClient`
- * shape that `useTable(name, { rpc })` expects.
+/** Adapt an oRPC (or any direct-call) client into the `RpcClient` shape.
  *
- * **Validation behaviour:**
- * - Walks `client[ns][proc]` and accepts any `function` value.
- * - Entries that are not functions (e.g. plain objects, primitives) are
- *   silently dropped (warnings printed to `console.warn` unless
- *   `skipValidation: true`).
- * - Missing namespaces/procedures become `undefined` in the output —
- *   the mutation layer treats undefined as "no-op".
- *
- * The output is plain — you can also just cast your `orpc` client
- * directly to `RpcClient` if you know it conforms. This helper exists
- * for the common case where you want a sanity check.
- *
- * @example
- * ```ts
- * // oRPC client → RpcClient
- * const rpc = createRpcAdapter(orpc)
- *
- * // Plain object → RpcClient
- * const rpc = createRpcAdapter({
- *   teacher: {
- *     createLesson: (input) => fetch('/api/teacher/lesson', { ...input }),
- *     deleteLesson: (input) => fetch(`/api/teacher/lesson/${input.id}`, { method: 'DELETE' }),
- *   },
- * })
- *
- * // Restrict to specific namespaces
- * const rpc = createRpcAdapter(orpc, { namespaces: ['teacher'] })
- * ```
+ * Walks `client[ns][proc]` and accepts any function value. Missing or
+ * non-function entries become `undefined` in the output, which the
+ * mutation layer treats as a no-op.
  */
-export const createRpcAdapter = (
-  client: AnyRpcClient,
+export const createORPCAdapter = (
+  client: Record<string, unknown>,
   options: CreateRpcAdapterOptions = {},
 ): RpcClient => {
   const { namespaces, skipValidation = false } = options
@@ -89,7 +48,7 @@ export const createRpcAdapter = (
     if (namespaces && !namespaces.includes(ns)) continue
     if (procs === null || procs === undefined || typeof procs !== 'object') {
       if (!skipValidation) {
-        console.warn(`[createRpcAdapter] namespace '${ns}' is not an object — skipping`)
+        console.warn(`[createORPCAdapter] namespace '${ns}' is not an object — skipping`)
       }
       continue
     }
@@ -102,7 +61,65 @@ export const createRpcAdapter = (
         procMap[proc] = undefined
       } else if (!skipValidation) {
         console.warn(
-          `[createRpcAdapter] ${ns}.${proc} is not a function (${typeof value}) — skipping`,
+          `[createORPCAdapter] ${ns}.${proc} is not a function (${typeof value}) — skipping`,
+        )
+      }
+    }
+    out[ns] = procMap
+  }
+
+  return out as RpcClient
+}
+
+/**
+ * Adapt a tRPC client into the `RpcClient` shape.
+ *
+ * tRPC exposes procedures as proxy objects with `.mutate` (and `.query`,
+ * `.subscribe`) methods. This adapter wraps `.mutate(input)` so that
+ * `useTable`'s mutation layer can call it like a plain function.
+ *
+ * Walks `client[ns][proc]`, looks for a `.mutate` method, and falls back
+ * to a direct function if the value is already callable. Missing or
+ * invalid entries become `undefined` (no-op).
+ */
+export const createTRPCAdapter = (
+  client: Record<string, unknown>,
+  options: CreateRpcAdapterOptions = {},
+): RpcClient => {
+  const { namespaces, skipValidation = false } = options
+  const out: Record<string, Record<string, RpcProcedure | undefined>> = {}
+
+  for (const [ns, procs] of Object.entries(client)) {
+    if (namespaces && !namespaces.includes(ns)) continue
+    if (procs === null || procs === undefined || typeof procs !== 'object') {
+      if (!skipValidation) {
+        console.warn(`[createTRPCAdapter] namespace '${ns}' is not an object — skipping`)
+      }
+      continue
+    }
+
+    const procMap: Record<string, RpcProcedure | undefined> = {}
+    for (const [proc, value] of Object.entries(procs as Record<string, unknown>)) {
+      if (value === undefined || value === null) {
+        procMap[proc] = undefined
+        continue
+      }
+
+      if (typeof value === 'function') {
+        // Direct-call procedures (oRPC, plain functions) also work here.
+        procMap[proc] = value as RpcProcedure
+      } else if (typeof value === 'object') {
+        const proxy = value as Record<string, unknown>
+        if (typeof proxy.mutate === 'function') {
+          procMap[proc] = (input) => (proxy.mutate as RpcProcedure)(input)
+        } else if (!skipValidation) {
+          console.warn(
+            `[createTRPCAdapter] ${ns}.${proc} has no .mutate method — skipping`,
+          )
+        }
+      } else if (!skipValidation) {
+        console.warn(
+          `[createTRPCAdapter] ${ns}.${proc} is not a tRPC procedure (${typeof value}) — skipping`,
         )
       }
     }

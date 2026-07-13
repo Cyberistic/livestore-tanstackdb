@@ -1,16 +1,14 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 import { useCallback, useEffect, useState } from 'react'
 
-import { useCrud, useTable, type RpcClient } from '@cyberistic/livestore-tanstack-db'
+import { useCrud, useTable } from '@cyberistic/livestore-tanstack-db'
 
 import { Footer } from '../components/Footer.tsx'
 import { Header } from '../components/Header.tsx'
 import { MainSection } from '../components/MainSection.tsx'
 
-import { orpc } from '../lib/orpc-client.ts'
+import { orpc, rpcPosts } from '../lib/orpc-client.ts'
 import { rpcConfig } from '../livestore/schema.ts'
-
-const rpcPosts = orpc.posts as unknown as RpcClient
 
 /**
  * SSR loader — runs on the server before render. Uses the server-side

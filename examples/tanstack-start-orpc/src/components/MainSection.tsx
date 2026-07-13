@@ -1,16 +1,14 @@
 import { type ChangeEvent, useCallback, useMemo } from 'react'
 import { useLiveQuery } from '@tanstack/react-db'
 
-import { useTable, type RpcClient } from '@cyberistic/livestore-tanstack-db'
+import { useTable } from '@cyberistic/livestore-tanstack-db'
 
 import { uiState$ } from '../livestore/queries.ts'
 import { rpcConfig } from '../livestore/schema.ts'
 import { useAppStore } from '../livestore/store.ts'
-import { orpc } from '../lib/orpc-client.ts'
+import { rpcPosts } from '../lib/orpc-client.ts'
 import { TodoItem } from './TodoItem.tsx'
 import type { TodoRow } from './types.ts'
-
-const rpcPosts = orpc.posts as unknown as RpcClient
 
 /**
  * Main visible section of the app — renders the active todos, applies
