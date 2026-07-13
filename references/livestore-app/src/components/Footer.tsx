@@ -5,21 +5,16 @@ import { uiState$ } from '../livestore/queries.ts'
 import { events, tables } from '../livestore/schema.ts'
 import { useAppStore } from '../livestore/store.ts'
 
-const incompleteCount$ = queryDb(
-  tables.Todo.count().where({ completed: false, deletedAt: null }),
-  { label: 'incompleteCount' },
-)
+const incompleteCount$ = queryDb(tables.todos.count().where({ completed: false, deletedAt: null }), {
+  label: 'incompleteCount',
+})
 
 export const Footer = () => {
   const store = useAppStore()
-  const { filter } = store.useQuery(uiState$) as unknown as {
-    newTodoText: string
-    filter: 'all' | 'active' | 'completed'
-  }
-  const incompleteCount = store.useQuery(incompleteCount$) as unknown as number
+  const { filter } = store.useQuery(uiState$)
+  const incompleteCount = store.useQuery(incompleteCount$)
   const setFilter = useCallback(
-    (filter: 'all' | 'active' | 'completed') =>
-      store.commit(events.uiStateSet({ filter })),
+    (filter: (typeof tables.uiState.Value)['filter']) => store.commit(events.uiStateSet({ filter })),
     [store],
   )
   const handleAllClick = useCallback(() => setFilter('all'), [setFilter])

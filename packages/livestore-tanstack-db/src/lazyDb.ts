@@ -373,18 +373,7 @@ export const createLazyDb = (
   tables: Record<string, unknown>,
   options: LazyDbOptions = {},
 ): Readonly<Record<string, unknown>> => {
-  const serverOnly = new Set<string>(options.serverOnly ?? [])
-  // Fold in any server-only tables the consumer passed via the
-  // LiveStoreProvider config (typically sourced from
-  // `prisma/livestore.annotations.json` by the consumer's setup).
-  const liveStoreConfig = useLiveStoreConfig() as
-    | { serverOnlyTables?: ReadonlyArray<string> }
-    | null
-  if (liveStoreConfig?.serverOnlyTables) {
-    for (const name of liveStoreConfig.serverOnlyTables) {
-      serverOnly.add(name)
-    }
-  }
+  const initialServerOnly = new Set<string>(options.serverOnly ?? [])
   const inferredModelNames = options.events
     ? inferModelNamesFromEvents(tables, options.events)
     : {}
@@ -398,6 +387,24 @@ export const createLazyDb = (
   return new Proxy({}, {
     get(_target, rawName) {
       if (typeof rawName !== 'string') return undefined
+
+      // 0. Defer any React-context reads until we KNOW we're inside a
+      //    render. `createLazyDb()` itself runs at module load (so
+      //    `import { db } from '@/lib/db'` works), and any hook call
+      //    at that point throws "Invalid hook call". We only fold in
+      //    the `<LiveStoreProvider>`-level overrides once we're inside
+      //    React and can legitimately call `useContext`.
+      const serverOnly = new Set<string>(initialServerOnly)
+      if (insideReactRender()) {
+        const liveStoreConfig = useLiveStoreConfig() as
+          | { serverOnlyTables?: ReadonlyArray<string> }
+          | null
+        if (liveStoreConfig?.serverOnlyTables) {
+          for (const name of liveStoreConfig.serverOnlyTables) {
+            serverOnly.add(name)
+          }
+        }
+      }
 
       // 1. Server-only guard — check FIRST so a thrown error doesn't
       //    disturb React's hook bookkeeping for the current render.

@@ -7,6 +7,9 @@
  *     hooks for accessing those collections. The lazy `db.<name>` proxy
  *     (Tier 2.1) lets existing `import { X } from "@/lib/db"` call sites
  *     keep working post-migration.
+ *   - `createTypedUseTable<TSchemas>(...)` — factory returning a typed
+ *     `useTable` so `useTable('Todo')` returns `Collection<Todo, string>`
+ *     with zero casts at the call site.
  *   - `LiveStoreProvider` + `useLiveStoreConfig` — single component that
  *     holds the LiveStore schema, the store reference, and the oRPC
  *     client so descendants can use any of the above.
@@ -32,6 +35,15 @@ export type {
   RowOf,
   UseTableLiveStore,
 } from './useTable.ts'
+
+export { createTypedUseTable } from './createTypedUseTable.ts'
+export type {
+  TypedSchemas,
+  TypedTableSpec,
+  TypedUseTable,
+  TypedUseTableResult,
+  CreateTypedUseTableOptions,
+} from './createTypedUseTable.ts'
 export type { RpcClient, RpcConfig } from './mutations.ts'
 
 export { createLazyDb } from './lazyDb.ts'

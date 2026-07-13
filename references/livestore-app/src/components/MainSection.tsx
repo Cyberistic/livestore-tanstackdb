@@ -8,7 +8,7 @@ import { useAppStore } from '../livestore/store.ts'
 const visibleTodos$ = queryDb(
   (get) => {
     const { filter } = get(uiState$)
-    return tables.Todo.where({
+    return tables.todos.where({
       deletedAt: null,
       completed: filter === 'all' ? undefined : filter === 'completed',
     })
@@ -25,13 +25,13 @@ export const MainSection: React.FC = () => {
     [store],
   )
 
-  const visibleTodos = store.useQuery(visibleTodos$) as unknown as Array<typeof tables.todos.Type>
+  const visibleTodos = store.useQuery(visibleTodos$)
 
   const handleTodoToggle = React.useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const id = e.currentTarget.dataset.todoId
       if (!id) return
-      const todo = visibleTodos.find((item: typeof tables.todos.Type) => item.id === id)
+      const todo = visibleTodos.find((item) => item.id === id)
       if (todo) {
         toggleTodo(todo)
       }
@@ -51,7 +51,7 @@ export const MainSection: React.FC = () => {
   return (
     <section className="main">
       <ul className="todo-list">
-        {visibleTodos.map((todo: typeof tables.todos.Type) => (
+        {visibleTodos.map((todo) => (
           <li key={todo.id}>
             <div className="state">
               <input
@@ -62,12 +62,7 @@ export const MainSection: React.FC = () => {
                 onChange={handleTodoToggle}
               />
               <label>{todo.text}</label>
-              <button
-                type="button"
-                className="destroy"
-                data-todo-id={todo.id}
-                onClick={handleTodoDelete}
-              />
+              <button type="button" className="destroy" data-todo-id={todo.id} onClick={handleTodoDelete} />
             </div>
           </li>
         ))}

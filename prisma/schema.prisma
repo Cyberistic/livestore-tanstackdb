@@ -32,25 +32,18 @@ generator client {
 generator effect_client {
   provider            = "prisma-effect-schema-generator"
   output              = "./generated/client-schemas/index.ts"
-  effectImport        = "@livestore/utils/effect"
   // Introspection maps the integration factory consumes:
   idColumn            = "true"
   softDeleteColumn    = "true"
   tables              = "true"
   exportModelNames    = "true"
   exportModelNameType = "true"
-  // Wrap every schema in Schema.standardSchemaV1 so it satisfies
-  // State.SQLite.clientDocument's Schema<T, _, never> slot without an
-  // `as never` cast. Also makes the schemas usable as Standard Schema
-  // v1 (TanStack DB accepts them directly).
+  // Wrap every schema in `Schema.standardSchemaV1(...)` so it satisfies
+  // Standard Schema v1 (TanStack DB accepts it directly via
+  // `CollectionConfig.schema`). Fixed in 0.1.8 — the destructive
+  // `as unknown as Schema.Schema<unknown, unknown, never>` cast that
+  // erased the row type was removed upstream (issue #2).
   standardSchemaV1    = "true"
-}
-
-generator livestore {
-  provider     = "node ./node_modules/@cyberistic/livestore-prisma/dist/generator.cjs"
-  output       = "./generated/livestore/index.ts"
-  // Path to the per-table annotations file. Lives next to schema.prisma.
-  annotations = "./livestore.annotations.json"
 }
 
 model Todo {

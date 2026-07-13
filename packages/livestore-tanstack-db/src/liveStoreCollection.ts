@@ -206,26 +206,26 @@ export function liveStoreCollectionOptions<
   }
 
   const onInsert: InsertMutationFn<TOut, string> = async ({ transaction }) => {
-    for (const mutation of transaction.mutations) {
-      const row = mutation.modified as TOut
-      commitInsert?.(row)
-    }
+  for (const mutation of transaction.mutations) {
+    const row = mutation.modified as TOut
+    commitInsert?.(row)
   }
+}
 
-  const onUpdate: UpdateMutationFn<TOut, string> = async ({ transaction }) => {
-    for (const mutation of transaction.mutations) {
-      const original = mutation.original as TOut
-      const changes = mutation.changes as Partial<TOut>
-      commitUpdate?.(original, changes)
-    }
+const onUpdate: UpdateMutationFn<TOut, string> = async ({ transaction }) => {
+  for (const mutation of transaction.mutations) {
+    const original = mutation.original as TOut
+    const changes = mutation.changes as Partial<TOut>
+    commitUpdate?.(original, changes)
   }
+}
 
-  const onDelete: DeleteMutationFn<TOut, string> = async ({ transaction }) => {
-    for (const mutation of transaction.mutations) {
-      const original = mutation.original as TOut
-      commitDelete?.(original)
-    }
+const onDelete: DeleteMutationFn<TOut, string> = async ({ transaction }) => {
+  for (const mutation of transaction.mutations) {
+    const original = mutation.original as TOut
+    commitDelete?.(original)
   }
+}
 
   return {
     id,

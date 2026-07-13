@@ -11,11 +11,5 @@ export default defineConfig({
     fs: { strict: false },
   },
   worker: { format: 'es' },
-  plugins: [
-    cloudflare(),
-    react({
-      exclude: [/packages\/.*\/dist\//],
-    }),
-    livestoreDevtoolsPlugin({ schemaPath: './src/livestore/schema.ts' }),
-  ],
+  plugins: [cloudflare(), react(), livestoreDevtoolsPlugin({ schemaPath: './src/livestore/schema.ts' })],
 })

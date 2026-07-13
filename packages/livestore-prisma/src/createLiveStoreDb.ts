@@ -1,6 +1,6 @@
 import { Events, makeSchema, Schema, SessionIdSymbol, State } from '@livestore/livestore'
 
-import { toStandardSchemaV1 } from './standardSchema.ts'
+import { toStandardSchemaV1, toLiveStoreSchema } from './standardSchema.ts'
 import type {
   ColumnDescriptor,
   PrimaryKeyColumns,
@@ -9,7 +9,27 @@ import type {
   Tables,
 } from './types.ts'
 
-type GeneratedSchemas = Record<string, Schema.Schema.Any>
+/**
+ * The `prisma-effect-schema-generator` runtime contract.
+ *
+ * The `models` map is already a typed import from
+ * `../../prisma/generated/client-schemas/index.ts`. We additionally
+ * import the introspection maps the same file emits — `PRIMARY_KEY_COLUMNS`,
+ * `SOFT_DELETE_COLUMNS`, `TABLES` — and use them to:
+ *
+ *   - auto-derive the DB table name (`TABLES[m].name`)
+ *   - auto-derive `getKey` from `primaryKeyColumns[m]`
+ *   - auto-derive the soft-delete predicate from `softDeleteColumns[m]`
+ *   - auto-derive per-field `Completed`/`Uncompleted` events from
+ *     `TABLES[m].columns.filter(c => c.type === 'boolean')`
+ *
+ * Consumers can still override per-model via the `tables?:` config option
+ * (e.g. for ad-hoc per-table flags like `serverOnly`). The default below
+ * is "use whatever the generator emitted".
+ */
+export const DEFAULT_TABLES: Tables = {}
+
+type GeneratedSchemas = Record<string, unknown>
 
 type RowType<S> = S extends Schema.Schema<infer T, any, any> ? T : never
 
@@ -127,9 +147,9 @@ const defaultValuesFor = (
 
 const insertableSchemaFor = (
   columns: ReadonlyArray<ColumnDescriptor> | undefined,
-  modelSchema: Schema.Schema.Any,
+  modelSchema: unknown,
 ): Record<string, Schema.Schema.Any> => {
-  const fields = (modelSchema as unknown as { fields: Record<string, Schema.Schema.Any> }).fields
+  const fields = fieldsOf(modelSchema)
   if (!fields || !columns) return {}
   const insertable = columns.filter(
     (c) =>
@@ -155,6 +175,21 @@ const eventSuffixesFor = (fieldName: string): { on: string; off: string } => {
 
 const camelize = (s: string) => s[0]!.toLowerCase() + s.slice(1)
 const capitalize = (s: string) => s[0]!.toUpperCase() + s.slice(1)
+
+/**
+ * Read the `fields` map from a `Schema.Struct`/`Schema.TypeLiteral`
+ * instance without an `as unknown` cast. The `Schema.Struct` /
+ * `TypeLiteral` interfaces both declare `readonly fields: Readonly<Fields>`,
+ * but `Schema.Schema.Any` is the broader `Schema<any, any, any>` type
+ * which doesn't expose `fields`. This helper narrows the type with
+ * a structural check before reading.
+ */
+const fieldsOf = (
+  schema: unknown,
+): Readonly<Record<string, Schema.Schema.Any>> | undefined => {
+  const fields = (schema as { readonly fields?: Readonly<Record<string, Schema.Schema.Any>> }).fields
+  return fields
+}
 
 export const createLiveStoreDb = <T extends GeneratedSchemas>(
   config: LiveStoreDbConfig<T>,
@@ -182,12 +217,7 @@ export const createLiveStoreDb = <T extends GeneratedSchemas>(
 
     tables[modelName] = State.SQLite.table({
       name: tableName,
-      // The upstream `prisma-effect-schema-generator` output is already
-      // wrapped in `Schema.standardSchemaV1(...)` when that flag is on;
-      // the variance check on `State.SQLite.table({ schema })` still
-      // disagrees at the type level because of how the intersection is
-      // exposed. Cast through any at this single boundary.
-      schema: toStandardSchemaV1(modelSchema) as never as never as never,
+      schema: toLiveStoreSchema(modelSchema),
     })
 
     if (tableMeta && !tableMeta.includedInSync) {
@@ -199,7 +229,7 @@ export const createLiveStoreDb = <T extends GeneratedSchemas>(
       const createdSchema = Schema.Struct(insertableSchemaFor(columns, modelSchema))
       events[`${modelPrefix}Created`] = Events.synced({
         name: createdName,
-        schema: toStandardSchemaV1(createdSchema) as never,
+        schema: toStandardSchemaV1(createdSchema),
       })
       const defaults = defaultValuesFor(columns)
       const target = tables[modelName]

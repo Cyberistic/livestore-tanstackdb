@@ -3,7 +3,7 @@ import { Schema } from '@livestore/livestore'
 // Generated from `prisma/schema.prisma` — the single source of truth for
 // both the D1 DDL and the LiveStore SQLite materialisers. The TodoSchema
 // exported here is *literally* the same Schema instance the LiveStore
-// `tables.todos` definition uses, so the client-side row type can never
+// `tables.Todo` definition uses, so the client-side row type can never
 // drift from the server-side definition.
 import { TodoSchema } from '../../prisma/generated/client-schemas/index.ts'
 
