@@ -165,9 +165,11 @@ const makeCommitInsert = (
   events: Record<string, any>,
 ) => {
   const e = syncedEventFor(name, events, 'Created')
-  return (input: { row: LiveStoreRow }) => {
-    // type level for our use case; the runtime is fine.
-    store.commit(e(input.row))
+  // Takes a raw row (not `{ row }`) — matches the shape of
+  // `MutationCallbacks['commitInsert']` and the loop in `useTable`
+  // that passes `mutation.modified` directly.
+  return (row: LiveStoreRow) => {
+    store.commit(e(row))
   }
 }
 
@@ -195,8 +197,16 @@ const makeCommitDelete = (
   events: Record<string, any>,
 ) => {
   const e = syncedEventFor(name, events, 'Deleted')
-  return (input: { id: string }) => {
-    store.commit(e(input))
+  // Takes the raw row — `commitDelete` in `MutationCallbacks` is
+  // `(row) => void`, and the caller passes `mutation.original` directly.
+  // We extract `id` and append `deletedAt` (soft-delete) inside the event.
+  return (row: LiveStoreRow) => {
+    store.commit(
+      e({
+        id: (row as { id: string }).id,
+        deletedAt: new Date(),
+      } as unknown as Parameters<typeof e>[0]),
+    )
   }
 }
 
