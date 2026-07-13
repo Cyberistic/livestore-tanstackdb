@@ -1,4 +1,5 @@
 import { FPSMeter } from '@overengineering/fps-meter'
+import { TanStackDevtools } from '@tanstack/react-devtools'
 import type React from 'react'
 import { Suspense } from 'react'
 import { ErrorBoundary } from 'react-error-boundary'
@@ -9,6 +10,9 @@ import { MainSection } from './components/MainSection.tsx'
 import { VersionBadge } from './components/VersionBadge.tsx'
 
 import { storeRegistry, StoreRegistryProvider } from './livestore/store.ts'
+
+import { liveStoreDevtoolsPlugin } from '@cyberistic/livestore-tanstack-db/devtools'
+import { LiveStoreDevtoolsBridge } from './components/LiveStoreDevtoolsBridge.tsx'
 
 const errorBoundaryFallback = <div>Something went wrong</div>
 const suspenseFallback = <div>Loading app...</div>
@@ -22,17 +26,6 @@ const AppBody: React.FC = () => (
   </section>
 )
 
-/**
- * Mirrors the canonical `examples/web-todomvc-sync-cf` shape:
- *   - `StoreRegistryProvider` owns the store lifecycle
- *   - `useStore` (called inside `<Header />` / `<MainSection />` / `<Footer />`)
- *     registers retain/release effects automatically
- *   - No custom `LiveStoreProvider` or store.commit patching — the
- *     devtools bridge we added previously was racing with the
- *     registry's retain path and shutting the store down mid-commit.
- *
- * If you need to wire oRPC, drop an `oRPC={...}` prop here later.
- */
 export const App: React.FC = () => (
   <ErrorBoundary fallback={errorBoundaryFallback}>
     <Suspense fallback={suspenseFallback}>
@@ -42,6 +35,8 @@ export const App: React.FC = () => (
         </div>
         <AppBody />
         <VersionBadge />
+        <LiveStoreDevtoolsBridge />
+        <TanStackDevtools plugins={[liveStoreDevtoolsPlugin()]} />
       </StoreRegistryProvider>
     </Suspense>
   </ErrorBoundary>

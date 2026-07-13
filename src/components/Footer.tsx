@@ -1,22 +1,25 @@
-import { queryDb } from '@livestore/livestore'
-import { useCallback } from 'react'
+import { useCallback, useMemo } from 'react'
+import { useLiveQuery } from '@tanstack/react-db'
 
 import { uiState$ } from '../livestore/queries.ts'
-import { events, tables } from '../livestore/schema.ts'
+import { events } from '../livestore/schema.ts'
 import { useAppStore } from '../livestore/store.ts'
-
-const incompleteCount$ = queryDb(
-  tables.Todo.count().where({ completed: false, deletedAt: null }),
-  { label: 'incompleteCount' },
-)
+import { useTodoCollection } from '../db/todoCollection.ts'
 
 export const Footer = () => {
   const store = useAppStore()
+  const todosCollection = useTodoCollection()
+  const { data: todos } = useLiveQuery((_q) => todosCollection, [])
   const { filter } = store.useQuery(uiState$) as unknown as {
     newTodoText: string
     filter: 'all' | 'active' | 'completed'
   }
-  const incompleteCount = store.useQuery(incompleteCount$) as unknown as number
+
+  const incompleteCount = useMemo(
+    () => todos?.filter((t) => !t.completed).length ?? 0,
+    [todos],
+  )
+
   const setFilter = useCallback(
     (filter: 'all' | 'active' | 'completed') =>
       store.commit(events.uiStateSet({ filter })),
@@ -25,9 +28,17 @@ export const Footer = () => {
   const handleAllClick = useCallback(() => setFilter('all'), [setFilter])
   const handleActiveClick = useCallback(() => setFilter('active'), [setFilter])
   const handleCompletedClick = useCallback(() => setFilter('completed'), [setFilter])
+
   const handleClearCompleted = useCallback(
-    () => store.commit(events.todoClearedCompleted({ deletedAt: new Date() })),
-    [store],
+    () => {
+      if (!todos) return
+      for (const todo of todos) {
+        if (todo.completed) {
+          todosCollection.delete(todo.id)
+        }
+      }
+    },
+    [todos, todosCollection],
   )
 
   return (

@@ -1,31 +1,37 @@
 /**
  * The LiveStore ↔ TanStack DB integration package.
  *
- *   - `liveStoreCollectionOptions` (Pattern B adapter) — bridges a
- *     LiveStore query into a TanStack DB collection.
- *   - `useTable(name)` / `useTables(spec)` / `preloadTable(name)` — React
- *     hooks for accessing those collections. The lazy `db.<name>` proxy
- *     (Tier 2.1) lets existing `import { X } from "@/lib/db"` call sites
- *     keep working post-migration.
- *   - `createTypedUseTable<TSchemas>(...)` — factory returning a typed
- *     `useTable` so `useTable('Todo')` returns `Collection<Todo, string>`
- *     with zero casts at the call site.
- *   - `LiveStoreProvider` + `useLiveStoreConfig` — single component that
- *     holds the LiveStore schema, the store reference, and the oRPC
- *     client so descendants can use any of the above.
- *   - `createMutations` (Tier 0.6) — auto-derives commitInsert /
- *     commitUpdate / commitDelete from a `{ rpc: { ns: { proc: { map? } } } }`
- *     config so writes round-trip to the server automatically.
+ * Follows the same pattern as `@tanstack/electric-db-collection` but
+ * adapted for LiveStore's local-first sync model:
  *
- * Pairs with `@cyberistic/livestore-prisma` (or with hand-written
- * LiveStore schemas — this package is LiveStore-source-agnostic).
+ * - `liveStoreCollectionOptions` — Pattern B adapter bridging a LiveStore
+ *   query into a TanStack DB collection. Mutation handlers commit
+ *   LiveStore events synchronously (no txid matching needed).
+ * - `createTypedTable<TRow>` — Typed per-table factory returning a React
+ *   hook whose `.collection` is `Collection<TRow, string>`.
+ * - `useTable` / `useTables` / `preloadTable` — Generic hooks for
+ *   accessing collections by name.
+ * - `createLazyDb` — Lazy db proxy for deferred schema loading.
+ * - `LiveStoreProvider` / `useLiveStoreConfig` — React context for
+ *   LiveStore configuration.
  */
-export { liveStoreCollectionOptions } from './liveStoreCollection.ts'
+export {
+  liveStoreCollectionOptions,
+  createCollection,
+} from './liveStoreCollection.ts'
 export type {
   LiveStoreRow,
+  LiveStoreCollectionConfig,
+  LiveStoreCollectionUtils,
   IsRowLive,
   CoerceRow,
 } from './liveStoreCollection.ts'
+
+export { createTypedTable } from './createTypedUseTable.ts'
+export type {
+  TypedTableOptions,
+  TypedTableResult,
+} from './createTypedUseTable.ts'
 
 export { useTable, useTables, preloadTable, getCollection } from './useTable.ts'
 export type {
@@ -36,14 +42,6 @@ export type {
   UseTableLiveStore,
 } from './useTable.ts'
 
-export { createTypedUseTable } from './createTypedUseTable.ts'
-export type {
-  TypedSchemas,
-  TypedTableSpec,
-  TypedUseTable,
-  TypedUseTableResult,
-  CreateTypedUseTableOptions,
-} from './createTypedUseTable.ts'
 export type { RpcClient, RpcConfig } from './mutations.ts'
 
 export { createLazyDb } from './lazyDb.ts'

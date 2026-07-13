@@ -3,9 +3,11 @@ import { type ChangeEvent, type KeyboardEvent, useCallback } from 'react'
 import { uiState$ } from '../livestore/queries.ts'
 import { events } from '../livestore/schema.ts'
 import { useAppStore } from '../livestore/store.ts'
+import { useTodoCollection } from '../db/todoCollection.ts'
 
 export const Header = () => {
   const store = useAppStore()
+  const todosCollection = useTodoCollection()
   const { newTodoText } = store.useQuery(uiState$)
 
   const updatedNewTodoText = useCallback(
@@ -14,12 +16,17 @@ export const Header = () => {
   )
 
   const todoCreated = useCallback(
-    () =>
-      store.commit(
-        events.todoCreated({ id: crypto.randomUUID(), text: newTodoText }),
-        events.uiStateSet({ newTodoText: '' }),
-      ),
-    [newTodoText, store],
+    () => {
+      todosCollection.insert({
+        id: crypto.randomUUID(),
+        text: newTodoText,
+        completed: false,
+        deletedAt: null,
+        createdAt: new Date(),
+      } as any)
+      store.commit(events.uiStateSet({ newTodoText: '' }))
+    },
+    [newTodoText, store, todosCollection],
   )
 
   const handleChange = useCallback(

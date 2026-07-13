@@ -11,6 +11,7 @@ export type LiveStoreDevtoolsEvents = {
   'event-committed': {
     kind: 'local' | 'remote'
     seqNum: string
+    timestamp: number
     eventName: string
     args: Record<string, unknown>
   }

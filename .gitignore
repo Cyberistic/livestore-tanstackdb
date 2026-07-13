@@ -64,4 +64,4 @@ playwright/.cache/
 
 # Session / chat logs that shouldn't land in the repo
 *.md.local
-session-*.md
+session-*.mdreferences/

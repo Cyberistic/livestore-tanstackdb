@@ -1,4 +1,4 @@
-import { Schema } from '@livestore/livestore'
+import { Schema } from 'effect'
 
 // Generated from `prisma/schema.prisma` — the single source of truth for
 // both the D1 DDL and the LiveStore SQLite materialisers. The TodoSchema

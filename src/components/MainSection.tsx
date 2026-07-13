@@ -1,57 +1,49 @@
-import { queryDb } from '@livestore/livestore'
-import React from 'react'
+import React, { useCallback, useMemo } from 'react'
+import { useLiveQuery } from '@tanstack/react-db'
 
 import { uiState$ } from '../livestore/queries.ts'
-import { events, tables } from '../livestore/schema.ts'
 import { useAppStore } from '../livestore/store.ts'
-
-const visibleTodos$ = queryDb(
-  (get) => {
-    const { filter } = get(uiState$)
-    return tables.Todo.where({
-      deletedAt: null,
-      completed: filter === 'all' ? undefined : filter === 'completed',
-    })
-  },
-  { label: 'visibleTodos' },
-)
+import { useTodoCollection } from '../db/todoCollection.ts'
 
 export const MainSection: React.FC = () => {
   const store = useAppStore()
+  const todosCollection = useTodoCollection()
+  const { data: todos } = useLiveQuery((_q) => todosCollection, [])
+  const { filter } = store.useQuery(uiState$) as unknown as {
+    filter: 'all' | 'active' | 'completed'
+  }
 
-  const toggleTodo = React.useCallback(
-    ({ id, completed }: typeof tables.todos.Type) =>
-      store.commit(completed ? events.todoUncompleted({ id }) : events.todoCompleted({ id })),
-    [store],
-  )
+  const visibleTodos = useMemo(() => {
+    if (!todos) return []
+    if (filter === 'active') return todos.filter((t) => !t.completed)
+    if (filter === 'completed') return todos.filter((t) => t.completed)
+    return todos
+  }, [todos, filter])
 
-  const visibleTodos = store.useQuery(visibleTodos$) as unknown as Array<typeof tables.todos.Type>
-
-  const handleTodoToggle = React.useCallback(
+  const handleTodoToggle = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const id = e.currentTarget.dataset.todoId
       if (!id) return
-      const todo = visibleTodos.find((item: typeof tables.todos.Type) => item.id === id)
-      if (todo) {
-        toggleTodo(todo)
-      }
+      todosCollection.update(id, (draft) => {
+        draft.completed = !draft.completed
+      })
     },
-    [toggleTodo, visibleTodos],
+    [todosCollection],
   )
 
-  const handleTodoDelete = React.useCallback(
+  const handleTodoDelete = useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
       const id = e.currentTarget.dataset.todoId
       if (!id) return
-      store.commit(events.todoDeleted({ id, deletedAt: new Date() }))
+      todosCollection.delete(id)
     },
-    [store],
+    [todosCollection],
   )
 
   return (
     <section className="main">
       <ul className="todo-list">
-        {visibleTodos.map((todo: typeof tables.todos.Type) => (
+        {visibleTodos.map((todo) => (
           <li key={todo.id}>
             <div className="state">
               <input
