@@ -15,6 +15,7 @@ export const TodoSchema = Schema.standardSchemaV1(Schema.Struct({
   id: Schema.String,
   text: Schema.String,
   completed: Schema.Boolean,
+  createdAt: Schema.DateFromSelf,
   deletedAt: Schema.NullOr(Schema.DateFromSelf),
 }))
 
@@ -67,6 +68,7 @@ export const TABLES: { [M in ModelName]: TableDescriptor } = {
       { name: "id", type: 'string', required: true, list: false, unique: true, isEnum: false },
       { name: "text", type: 'string', required: true, list: false, unique: false, isEnum: false },
       { name: "completed", type: 'boolean', required: true, list: false, unique: false, isEnum: false },
+      { name: "createdAt", type: 'date', required: true, list: false, unique: false, isEnum: false },
       { name: "deletedAt", type: 'date', required: false, list: false, unique: false, isEnum: false },
     ],
     includedInSync: true,

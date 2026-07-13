@@ -14,7 +14,12 @@ export const MainSection: React.FC = () => {
     (q) =>
       q
         .from({ todo: todosCollection })
-        .select(({ todo }) => ({ id: todo.id, text: todo.text })),
+        .select(({ todo }) => ({
+          id: todo.id,
+          text: todo.text,
+          createdAt: todo.createdAt,
+        }))
+        .orderBy(({ todo }) => todo.createdAt, 'desc'),
     [],
   )
   const { data: todoCompletion } = useLiveQuery(

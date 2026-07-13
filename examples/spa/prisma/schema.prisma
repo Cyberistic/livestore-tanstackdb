@@ -50,6 +50,7 @@ model Todo {
   id        String    @id
   text      String
   completed Boolean   @default(false)
+  createdAt DateTime  @default(now())
   deletedAt DateTime? @map("deleted_at")
 
   @@map("todos")
