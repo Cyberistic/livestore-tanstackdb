@@ -45,7 +45,10 @@ export type {
 export { useCrud } from './useCrud.ts'
 export type { CrudActions, CrudResult } from './useCrud.ts'
 
-export type { RpcClient, RpcConfig } from './mutations.ts'
+export type { RpcClient, RpcConfig, RpcProcedure } from './mutations.ts'
+
+export { createRpcAdapter } from './rpcAdapter.ts'
+export type { CreateRpcAdapterOptions, NamespacesOf } from './rpcAdapter.ts'
 
 export { createLazyDb } from './lazyDb.ts'
 export type {

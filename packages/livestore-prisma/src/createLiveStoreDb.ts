@@ -1,6 +1,7 @@
 import { Events, makeSchema, Schema, SessionIdSymbol, State } from '@livestore/livestore'
 
 import { toStandardSchemaV1, toLiveStoreSchema } from './standardSchema.ts'
+import { buildLiveStoreTableSchema } from './liveStoreTableSchema.ts'
 import type {
   ColumnDescriptor,
   PrimaryKeyColumns,
@@ -217,7 +218,14 @@ export const createLiveStoreDb = <T extends GeneratedSchemas>(
 
     tables[modelName] = State.SQLite.table({
       name: tableName,
-      schema: toLiveStoreSchema(modelSchema),
+      // Build the LiveStore table schema from `TABLES[model].columns`
+      // directly, mapping `'date'` columns to `Schema.DateFromString`.
+      // The upstream generator's `Schema.Date` expects a `Date` object,
+      // but LiveStore stores dates as ISO strings, so we can't reuse
+      // the auto-generated schema for the table def.
+      schema: tableMeta
+        ? toLiveStoreSchema(buildLiveStoreTableSchema(modelName, tableMeta))
+        : toLiveStoreSchema(modelSchema),
     })
 
     if (tableMeta && !tableMeta.includedInSync) {

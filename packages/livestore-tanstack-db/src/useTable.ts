@@ -2,12 +2,13 @@ import { queryDb } from '@livestore/livestore'
 import type { Queryable, Store } from '@livestore/livestore'
 import { createCollection } from '@tanstack/db'
 import type { Collection } from '@tanstack/db'
-import { use as reactUse, useMemo } from 'react'
+import { useMemo } from 'react'
 
 import { liveStoreCollectionOptions, type LiveStoreRow } from './liveStoreCollection.ts'
 import type { MutationCallbacks, RpcClient, RpcConfig } from './mutations.ts'
 import { createMutations } from './mutations.ts'
 import { useLiveStoreConfig } from './LiveStoreProvider.tsx'
+import { getKeyFromSchema } from './getKeyFromSchema.ts'
 
 // ─────────────────────────────────────────────────────────────────────
 // Public types
@@ -53,7 +54,6 @@ const useLiveStore = (): UseTableLiveStore | null => {
 // ─────────────────────────────────────────────────────────────────────
 
 const VERSION = 'v1'
-const DEFAULT_WHERE = { deletedAt: null } as const
 
 const lcFirst = (s: string) => s.charAt(0).toLowerCase() + s.slice(1)
 const ucFirst = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
@@ -88,7 +88,65 @@ const clientDocSetEventFor = (
   return e
 }
 
-const getKey = <T extends LiveStoreRow>(row: T): string => (row as { id: string }).id
+/**
+ * Walk the schema's property signatures and find a soft-delete column.
+ * Heuristic: any field matching /(deleted|archived|removed)/ of
+ * `NullOr(...)` type — covers `deletedAt`, `archivedAt`, `isDeleted`, etc.
+ *
+ * Tier 1.2 — removes the need for callers to pass `where: { deletedAt: null }`
+ * for every `useTable(name)` call.
+ */
+const softDeleteColumnFromSchema = (schema: unknown): string | null => {
+  if (!schema || typeof schema !== 'object') return null
+  const fields = (schema as { readonly fields?: Readonly<Record<string, unknown>> }).fields
+  if (!fields) return null
+  for (const [name, sig] of Object.entries(fields)) {
+    if (!/(deleted|archived|removed)/i.test(name)) continue
+    const ast = (sig as { readonly ast?: unknown }).ast
+    if (!ast) continue
+    const tag = (ast as { readonly _tag?: string })._tag
+    if (tag !== 'Union') continue
+    const types = (ast as { readonly types?: ReadonlyArray<unknown> }).types
+    if (!Array.isArray(types)) continue
+    const hasNull = types.some((t) => {
+      const tTag = (t as { readonly _tag?: string })._tag
+      return (
+        tTag === 'Literal' &&
+        (t as { readonly literal?: unknown }).literal === null
+      )
+    })
+    if (hasNull) return name
+  }
+  return null
+}
+
+/**
+ * Build a default `where` predicate from the schema's soft-delete column.
+ * Returns `{}` (no filter) when no soft-delete column is detected.
+ */
+const defaultWhereFromSchema = (schema: unknown): Record<string, unknown> => {
+  const col = softDeleteColumnFromSchema(schema)
+  return col ? { [col]: null } : {}
+}
+
+/**
+ * Build a `getKey` function from the schema's primary-key column.
+ * Tier 1.1 — wraps {@link getKeyFromSchema} so the row's pk column is
+ * read instead of hardcoded `row.id`. Falls back to `'id'` when the
+ * schema walker can't determine the pk.
+ */
+const getKeyFromTable = (schema: unknown): ((row: LiveStoreRow) => string) => {
+  // The schema field on a LiveStore table def is `Schema.Schema.Any` from
+  // `@livestore/livestore`. We accept `unknown` here because the column
+  // walker tolerates `null` / non-schema inputs and falls back to a
+  // `row.id` lookup.
+  try {
+    return getKeyFromSchema<LiveStoreRow>(schema as Parameters<typeof getKeyFromSchema>[0])
+  } catch {
+    // No primary key found — fall back to `row.id` for compatibility.
+    return (row: LiveStoreRow) => (row as unknown as { id: string }).id
+  }
+}
 
 const makeCommitInsert = (
   store: Store<any>,
@@ -181,10 +239,15 @@ const buildCommitCallbacks = (
 const buildQuery = <TName extends TableName>(
   name: TName,
   tables: Record<string, any>,
+  schema?: unknown,
 ): Queryable<any> => {
-  // Default: soft-delete-aware. `useTable(name, { where: ... })` lets
-  // callers override.
-  return queryDb((tables as Record<string, any>)[name].where(DEFAULT_WHERE), {
+  // Default: soft-delete-aware (Tier 1.2). When the schema has a
+  // `deletedAt` / `archivedAt` / `isDeleted` field of `NullOr(...)` type
+  // we auto-derive a `where: { <col>: null }` filter. Callers can
+  // override via `useTable(name, { where: ... })`.
+  const where = defaultWhereFromSchema(schema)
+  const t = (tables as Record<string, any>)[name]
+  return queryDb(Object.keys(where).length === 0 ? t : t.where(where), {
     label: `${lcFirst(name)}:all`,
   })
 }
@@ -245,7 +308,13 @@ export interface UseTableResult<TName extends TableName> {
   isReadOnly: boolean
 }
 
-const collectionCache = new Map<string, Promise<Collection<any, string>>>()
+/**
+ * Module-level cache: one Collection per (storeId + name + where + rpc) key.
+ * `useTable` returns the cached Collection; `createCollection` is sync, so
+ * no promise/async is involved. Bypasses React's "creating promises in
+ * Client Components" complaint.
+ */
+const collectionCache = new Map<string, Collection<LiveStoreRow, string>>()
 const collectionCacheKey = (
   storeId: string,
   name: string,
@@ -254,94 +323,100 @@ const collectionCacheKey = (
 ) => JSON.stringify({ storeId, name, where, rpc })
 
 /**
- * Build a `Collection` for the given model name + options. Idempotent —
- * multiple calls return the same `Promise<Collection>`.
+ * Build a `Collection` for the given model name + options. Synchronous —
+ * `createCollection` from `@tanstack/db` returns the Collection
+ * immediately. Idempotent: repeated calls with the same key return the
+ * cached instance.
  */
-export const getCollection = async <TName extends TableName>(
+export const getCollection = <TName extends TableName>(
   name: TName,
   options: UseTableOptions<TName> & { liveStore: UseTableLiveStore },
-): Promise<Collection<LiveStoreRow, string>> => {
+): Collection<LiveStoreRow, string> => {
   const { liveStore, where, rpc, commitInsert, commitUpdate, commitDelete } = options
   const store = liveStore.store
   const key = collectionCacheKey(store['storeId'] ?? '', name, where, rpc)
   const cached = collectionCache.get(key)
-  if (cached) return cached as Promise<Collection<LiveStoreRow, string>>
+  if (cached) return cached
 
-  const collectionPromise = (async () => {
-    const table = where
-      ? (liveStore.tables as Record<string, any>)[name].where(where)
-      : buildQuery(name, liveStore.tables as Record<string, any>)
+  const tableDef = (liveStore.tables as Record<string, any>)[name]
+  const tableSchema = tableDef?.schema as unknown
+  const table = where
+    ? tableDef.where(where)
+    : buildQuery(name, liveStore.tables as Record<string, any>, tableSchema)
 
-    const live = liveStore.events as Record<string, any>
-    const isReadOnly = Boolean((liveStore.tables as Record<string, any>)[name]?.['__readOnly'])
+  const live = liveStore.events as Record<string, any>
+  const isReadOnly = Boolean((liveStore.tables as Record<string, any>)[name]?.['__readOnly'])
 
-    // Auto-derive commit handlers unless the caller overrode them.
-    const auto = isReadOnly
-      ? {}
-      : buildCommitCallbacks(store, name, live)
+  // Auto-derive commit handlers unless the caller overrode them.
+  const auto = isReadOnly ? {} : buildCommitCallbacks(store, name, live)
 
-    const insert = commitInsert ?? auto.commitInsert
-    const update = commitUpdate ?? auto.commitUpdate
-    const delete_ = commitDelete ?? auto.commitDelete
+  const insert = commitInsert ?? auto.commitInsert
+  const update = commitUpdate ?? auto.commitUpdate
+  const delete_ = commitDelete ?? auto.commitDelete
 
-    // Tier 0.6 — oRPC write-back via the createMutations helper.
-    const mutationOverrides = rpc?.client
-      ? createMutations({
-          store,
-          modelName: name,
-          events: live,
-          rpcClient: rpc.client,
-          rpcConfig: rpc.config,
-        })
-      : null
+  // Tier 1.1 — auto-derive `getKey` from the schema's primary-key
+  // column. The schema walker looks for an `isPrimaryKey` marker on the
+  // ast property signatures (set by upstream `prisma-effect-schema-generator`
+  // when it emits one); falls back to `'id'`.
+  const rowGetKey = getKeyFromTable(tableSchema)
 
-    const finalInsert = mutationOverrides?.commitInsert ?? insert
-    const finalUpdate = mutationOverrides?.commitUpdate ?? update
-    const finalDelete = mutationOverrides?.commitDelete ?? delete_
-
-    return createCollection(
-      liveStoreCollectionOptions<LiveStoreRow>({
-        id: name.toLowerCase(),
+  // Tier 0.6 — oRPC write-back via the createMutations helper.
+  const mutationOverrides = rpc?.client
+    ? createMutations({
         store,
-        query: table,
-        getKey,
-        isReadOnly,
-        ...(finalInsert
-          ? {
-              onInsert: async ({ transaction }) => {
-                for (const mutation of transaction.mutations) {
-                  finalInsert(mutation.modified as never)
-                }
-              },
-            }
-          : {}),
-        ...(finalUpdate
-          ? {
-              onUpdate: async ({ transaction }) => {
-                for (const mutation of transaction.mutations) {
-                  finalUpdate(
-                    mutation.original as never,
-                    mutation.changes as never,
-                  )
-                }
-              },
-            }
-          : {}),
-        ...(finalDelete
-          ? {
-              onDelete: async ({ transaction }) => {
-                for (const mutation of transaction.mutations) {
-                  finalDelete(mutation.original as never)
-                }
-              },
-            }
-          : {}),
-      }),
-    )
-  })()
+        modelName: name,
+        events: live,
+        rpcClient: rpc.client,
+        rpcConfig: rpc.config,
+      })
+    : null
 
-  collectionCache.set(key, collectionPromise)
-  return collectionPromise as Promise<Collection<LiveStoreRow, string>>
+  // Resolve the actual commit handlers: caller overrides win, then
+  // mutationOverrides (Tier 0.6 RPC write-back), then the auto-derived
+  // handlers. `mutationOverrides` and `auto` may both contribute
+  // handlers — `mutationOverrides` takes priority when present.
+  const finalInsert = mutationOverrides?.commitInsert ?? insert
+  const finalUpdate = mutationOverrides?.commitUpdate ?? update
+  const finalDelete = mutationOverrides?.commitDelete ?? delete_
+
+  const collection = createCollection(
+    liveStoreCollectionOptions<LiveStoreRow>({
+      id: name.toLowerCase(),
+      store,
+      query: table,
+      getKey: rowGetKey,
+      isReadOnly,
+      ...(finalInsert
+        ? {
+            onInsert: async ({ transaction }) => {
+              for (const m of transaction.mutations) {
+                finalInsert(m.modified as LiveStoreRow)
+              }
+            },
+          }
+        : {}),
+      ...(finalUpdate
+        ? {
+            onUpdate: async ({ transaction }) => {
+              for (const m of transaction.mutations) {
+                finalUpdate(m.original as LiveStoreRow, m.changes as Partial<LiveStoreRow>)
+              }
+            },
+          }
+        : {}),
+      ...(finalDelete
+        ? {
+            onDelete: async ({ transaction }) => {
+              for (const m of transaction.mutations) {
+                finalDelete(m.original as LiveStoreRow)
+              }
+            },
+          }
+        : {}),
+    }),
+  )
+  collectionCache.set(key, collection)
+  return collection
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -350,6 +425,10 @@ export const getCollection = async <TName extends TableName>(
 
 /**
  * React hook that returns the TanStack DB collection for a LiveStore table.
+ *
+ * Synchronous — `createCollection` returns the Collection immediately, so
+ * `useTable` doesn't suspend and can be used in Client Components without
+ * needing `<Suspense>`. Memoised by `(storeId + name + where + rpc)`.
  *
  * Must be rendered inside a `<LiveStoreProvider>` (or pass `liveStore`
  * explicitly to bypass the context).
@@ -365,8 +444,17 @@ export const useTable = <TName extends TableName>(
     )
   }
 
-  const collection = reactUse(
-    getCollection(name, { ...options, liveStore }),
+  const collection = useMemo(
+    () => getCollection(name, { ...options, liveStore }),
+    [
+      liveStore,
+      name,
+      options.where,
+      options.rpc,
+      options.commitInsert,
+      options.commitUpdate,
+      options.commitDelete,
+    ],
   )
 
   return {
@@ -382,7 +470,7 @@ export const useTable = <TName extends TableName>(
 // ─────────────────────────────────────────────────────────────────────
 
 /**
- * Bulk-import many collections in one call. Returns a `Map<name, collection>`.
+ * Bulk-import many collections in one call. Returns a `{ [name]: collection }`.
  *
  * Tier 1.4 — replaces the 60+ files in alkitab-alhakeem that each do
  * `useXxxCollection()` 1-3 times.
@@ -396,19 +484,31 @@ export const useTables = <Spec extends Record<string, UseTableOptions<TableName>
   }
   const out: Record<string, any> = {}
   for (const [name, opts] of Object.entries(spec)) {
-    out[name] = reactUse(getCollection(name, { ...(opts as UseTableOptions<TableName>), liveStore }))
+    out[name] = useMemo(
+      () => getCollection(name, { ...(opts as UseTableOptions<TableName>), liveStore }),
+      [
+        liveStore,
+        name,
+        opts.where,
+        opts.rpc,
+        opts.commitInsert,
+        opts.commitUpdate,
+        opts.commitDelete,
+      ],
+    )
   }
   return out as { [K in keyof Spec]: Collection<LiveStoreRow, string> }
 }
 
 /**
- * Loader-side equivalent of `useTable`. Returns a `Promise<Collection>` —
- * safe in TanStack Router loaders (no React tree required).
+ * Loader-side equivalent of `useTable`. Returns a `Collection` directly
+ * (sync) — safe in TanStack Router loaders / scripts / Worker handlers
+ * (no React tree required).
  */
 export const preloadTable = <TName extends TableName>(
   name: TName,
   options: UseTableOptions<TName> & { liveStore: UseTableLiveStore },
-): Promise<Collection<LiveStoreRow, string>> => getCollection(name, options)
+): Collection<LiveStoreRow, string> => getCollection(name, options)
 
 /** Type alias re-export. */
 export type { RpcClient, RpcConfig }
