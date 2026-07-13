@@ -19,48 +19,12 @@ Small Prisma to Effect Generator, which livestore consumes! (because I love the 
 **Prisma schema** as the source of truth for both the Cloudflare D1 audit log and the LiveStore materialisers. The whole stack, D1, Durable Object, and Worker, is provisioned by [Alchemy](https://alchemy.run).
 
 
-## Files of interest
-(ai slop)
-
-| Path | What it does |
-|------|--------------|
-| `prisma/schema.prisma` | Single source of truth for tables |
-| `generators/effect-schema.cjs` | Prisma → Effect Schema generator |
-| `prisma/generated/client-schemas/index.ts` | Generated Effect Schemas (gitignored) |
-| `prisma/migrations/0001_init/migration.sql` | Generated DDL for D1 |
-| `src/livestore/schema.ts` | LiveStore tables + events + materialisers |
-| `src/livestore/queries.ts` | Pre-built `uiState$` query |
-| `src/livestore/store.ts` | `useAppStore()` hook |
-| `src/db/liveStoreCollection.ts` | TanStack DB collection options creator |
-| `src/db/todoCollection.ts` | The `todos` collection wired with LiveStore events |
-| `src/db/todoSchema.ts` | Client-facing Effect `Schema` for the row type |
-| `src/components/*.tsx` | React components using `useLiveQuery` |
-| `src/cf-worker/index.ts` | LiveStore sync DO with D1 write-through + SPA fallback |
-| `alchemy.run.ts` | D1 + Durable Object + Worker |
-| `.gitignore` | Excludes `node_modules`, `dist`, generated, `.alchemy`, etc. |
-
-## Alchemy v2 note
-(ai slop but it's true)
-
-This stack uses the stable `alchemy@0.93.x` (v1) API. The v2 beta
-(`alchemy@next`, `2.0.0-beta.x`) is Effect-based but its transitive
-`@effect/*@0.x` tree — pulled in by `@livestore/utils` — references
-effect@0.x runtime APIs (`TRef`, `STM`, `Effect.merge`, `Effect.tryMap`,
-…) that aren't in any published effect@4 beta on npm. PR #801 advanced
-it but the migration isn't viable yet. Stay on v1 stable.
-
-## Credits
-- TODO app example pulled from `bunx @livestore/cli@dev create --example tutorial-starter livestore-todo-app`
-
-# License 
-MIT 
 
 ## Using this setup in your own project
 
 ### Packages
 
 ```bash
-bun add @cyberistic/livestore-prisma @cyberistic/livestore-tanstack-db
 bun add -D prisma-effect-schema-generator
 ```
 
@@ -259,6 +223,9 @@ posts.delete(post.id)
 
 ### 6. Devtools (optional)
 
+<img width="1496" height="824" alt="image" src="https://github.com/user-attachments/assets/316aca38-618e-41b6-a1e4-3c0b34149754" />
+
+
 Add the TanStack Devtools panel with the LiveStore plugin:
 
 ```tsx
@@ -284,3 +251,41 @@ export default defineConfig({
   plugins: [devtools()],
 })
 ```
+
+
+## Files of interest
+(ai slop)
+
+| Path | What it does |
+|------|--------------|
+| `prisma/schema.prisma` | Single source of truth for tables |
+| `generators/effect-schema.cjs` | Prisma → Effect Schema generator |
+| `prisma/generated/client-schemas/index.ts` | Generated Effect Schemas (gitignored) |
+| `prisma/migrations/0001_init/migration.sql` | Generated DDL for D1 |
+| `src/livestore/schema.ts` | LiveStore tables + events + materialisers |
+| `src/livestore/queries.ts` | Pre-built `uiState$` query |
+| `src/livestore/store.ts` | `useAppStore()` hook |
+| `src/db/liveStoreCollection.ts` | TanStack DB collection options creator |
+| `src/db/todoCollection.ts` | The `todos` collection wired with LiveStore events |
+| `src/db/todoSchema.ts` | Client-facing Effect `Schema` for the row type |
+| `src/components/*.tsx` | React components using `useLiveQuery` |
+| `src/cf-worker/index.ts` | LiveStore sync DO with D1 write-through + SPA fallback |
+| `alchemy.run.ts` | D1 + Durable Object + Worker |
+| `.gitignore` | Excludes `node_modules`, `dist`, generated, `.alchemy`, etc. |
+
+## Alchemy v2 note
+(ai slop but it's true)
+
+This stack uses the stable `alchemy@0.93.x` (v1) API. The v2 beta
+(`alchemy@next`, `2.0.0-beta.x`) is Effect-based but its transitive
+`@effect/*@0.x` tree — pulled in by `@livestore/utils` — references
+effect@0.x runtime APIs (`TRef`, `STM`, `Effect.merge`, `Effect.tryMap`,
+…) that aren't in any published effect@4 beta on npm. PR #801 advanced
+it but the migration isn't viable yet. Stay on v1 stable.
+
+## Credits
+- TODO app example pulled from `bunx @livestore/cli@dev create --example tutorial-starter livestore-todo-app`
+
+# License 
+MIT 
+
