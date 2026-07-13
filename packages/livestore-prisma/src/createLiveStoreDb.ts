@@ -160,10 +160,7 @@ const insertableSchemaFor = (
   const fields = fieldsOf(modelSchema)
   if (!fields || !columns) return {}
   const insertable = columns.filter(
-    (c) =>
-      c.required &&
-      c.type !== 'boolean' &&
-      !BOOLEAN_SUFFIX_BLOCKLIST.test(c.name),
+    (c) => c.required && c.type !== 'boolean',
   )
   const out: Record<string, Schema.Schema.Any> = {}
   for (const c of insertable) {
@@ -195,8 +192,24 @@ const capitalize = (s: string) => s[0]!.toUpperCase() + s.slice(1)
 const fieldsOf = (
   schema: unknown,
 ): Readonly<Record<string, Schema.Schema.Any>> | undefined => {
-  const fields = (schema as { readonly fields?: Readonly<Record<string, Schema.Schema.Any>> }).fields
-  return fields
+  const direct = (schema as { readonly fields?: Readonly<Record<string, Schema.Schema.Any>> }).fields
+  if (direct) return direct
+
+  const ast = (schema as {
+    readonly ast?: {
+      readonly propertySignatures?: ReadonlyArray<{
+        readonly name: PropertyKey
+        readonly type: unknown
+      }>
+    }
+  }).ast
+  if (!ast?.propertySignatures) return undefined
+
+  const out: Record<string, Schema.Schema.Any> = {}
+  for (const sig of ast.propertySignatures) {
+    out[String(sig.name)] = (Schema as any).make(sig.type)
+  }
+  return out
 }
 
 export const createLiveStoreDb = <T extends GeneratedSchemas>(

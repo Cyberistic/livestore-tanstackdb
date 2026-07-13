@@ -15,7 +15,7 @@ import { router } from '../lib/orpc.ts'
 const handler = new RPCHandler(router, {
   interceptors: [
     onError((error) => {
-      console.error('[oRPC] error:', error)
+      console.error('[oRPC server] error:', error)
     }),
   ],
 })
@@ -24,10 +24,12 @@ export const Route = createFileRoute('/api/rpc/$')({
   server: {
     handlers: {
       ANY: async ({ request }) => {
+        console.log(`[oRPC server] ${request.method} ${request.url}`)
         const { response } = await handler.handle(request, {
           prefix: '/api/rpc',
           context: {},
         })
+        console.log(`[oRPC server] → ${response?.status ?? 'no response'}`)
         return response ?? new Response('Not Found', { status: 404 })
       },
     },

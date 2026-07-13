@@ -123,13 +123,16 @@ const fireRpc = (
   input: unknown,
 ): void => {
   if (!proc) return
+  console.log('[fireRpc] firing RPC proc with input:', input)
   try {
     const result = proc(input)
     if (result && typeof (result as Promise<unknown>).catch === 'function') {
-      void (result as Promise<unknown>).catch(() => {})
+      void (result as Promise<unknown>).catch((err: unknown) => {
+        console.error('[fireRpc] RPC error:', err)
+      })
     }
-  } catch {
-    /* swallow sync RPC errors too */
+  } catch (err) {
+    console.error('[fireRpc] sync RPC error:', err)
   }
 }
 
@@ -169,6 +172,7 @@ export const classifyProcedure = (
   if (eventOverride) {
     if (/Deleted$/i.test(eventOverride)) return ['delete']
     if (/Created$/i.test(eventOverride)) return ['insert']
+    if (/Upserted$/i.test(eventOverride)) return ['insert']
     return ['update']
   }
   if (DELETE_NAME_RE.test(procName)) return ['delete']
@@ -218,17 +222,24 @@ export function createMutations(
     const clientNs =
       (rpcClient as Record<string, Record<string, RpcProcedure | undefined>> | undefined) ?? {}
 
+    console.log('[createMutations] rpcClient namespaces:', Object.keys(clientNs))
+    console.log('[createMutations] rpcConfig namespaces:', Object.keys(rpcConfig))
+
     for (const [ns, procs] of Object.entries(rpcConfig)) {
       if (!procs) continue
       const nsClient = clientNs[ns]
+      console.log(`[createMutations] ns="${ns}" clientNs[${ns}]:`, nsClient ? Object.keys(nsClient) : 'MISSING')
       for (const [proc, rawSpec] of Object.entries(procs)) {
         const spec = normalizeSpec(rawSpec)
         const procFn = nsClient?.[proc]
         const kinds = classifyProcedure(proc, spec.event)
+        console.log(`[createMutations]   proc="${proc}" fn=${typeof procFn} kinds=${kinds.join(',')} event=${spec.event ?? 'none'}`)
         const entry: ProcEntry = { ns, proc, procFn, spec }
         for (const kind of kinds) partitioned[kind].push(entry)
       }
     }
+  } else {
+    console.log('[createMutations] no rpcConfig provided')
   }
 
   // Cache the per-kind event override (the FIRST procedure with an
@@ -249,6 +260,22 @@ export function createMutations(
   const updateEventOverride = firstEventOverride(partitioned.update)
   const updateEntries = partitioned.update
 
+  console.log('[createMutations] partitioned:', {
+    insert: partitioned.insert.map((e) => `${e.ns}.${e.proc}`),
+    update: partitioned.update.map((e) => `${e.ns}.${e.proc}`),
+    delete: partitioned.delete.map((e) => `${e.ns}.${e.proc}`),
+  })
+  console.log('[createMutations] event keys:', { insertEventKey, deleteEventKey, updateEventOverride })
+
+  // ── Tier 1.7 — split insert entries into regular vs bulk ──
+  // Procedures with an `Upserted` event override belong to the bulk
+  // insert path only. They must NOT appear in the per-row `commitInsert`
+  // path (which would call the bulk RPC with a single row).
+  const isBulkEntry = (e: ProcEntry) =>
+    !!e.spec.event && /Upserted$/i.test(e.spec.event)
+  const regularInsertEntries = partitioned.insert.filter((e) => !isBulkEntry(e))
+  const bulkInsertEntries = partitioned.insert.filter(isBulkEntry)
+
   const runProc = (
     entry: ProcEntry,
     row: any,
@@ -268,14 +295,14 @@ export function createMutations(
   const commitBulkInsert: MutationCallbacks['commitBulkInsert'] = bulkUpsertedEvent
     ? (rows) => {
         tryCommit(store, bulkUpsertedEvent, { rows })
-        for (const e of partitioned.insert) runProc(e, rows as never)
+        for (const e of bulkInsertEntries) runProc(e, rows)
       }
     : undefined
 
   return {
     commitInsert: (row) => {
       tryCommit(store, findEvent(events, insertEventKey), row)
-      for (const e of partitioned.insert) runProc(e, row)
+      for (const e of regularInsertEntries) runProc(e, row)
     },
     ...(commitBulkInsert
       ? { commitBulkInsert }
@@ -308,7 +335,11 @@ export function createMutations(
               cap.endsWith('Completed')
                 ? `${modelPrefix}Completed`
                 : `${modelPrefix}${cap}Completed`
-            const key = value ? onKey : `${modelPrefix}${cap}Uncompleted`
+            const offKey =
+              cap.endsWith('Completed')
+                ? `${modelPrefix}Uncompleted`
+                : `${modelPrefix}${cap}Uncompleted`
+            const key = value ? onKey : offKey
             tryCommit(store, findEvent(events, key), { id })
           }
         } else {

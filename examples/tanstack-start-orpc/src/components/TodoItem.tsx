@@ -19,7 +19,7 @@ export const TodoItem = ({ todo, onToggle, onDelete }: TodoItemProps) => {
         <input
           type="checkbox"
           className="toggle"
-          checked={todo.completed}
+          checked={Boolean(todo.completed)}
           onChange={() => onToggle(todo.id)}
         />
         <label>{todo.text}</label>

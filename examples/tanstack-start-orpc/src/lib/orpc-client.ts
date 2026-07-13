@@ -35,6 +35,16 @@ const getORPCClient = createIsomorphicFn()
   .client((): RouterClient<typeof router> => {
     const link = new RPCLink({
       url: `${window.location.origin}/api/rpc`,
+      interceptors: [
+        async (options) => {
+          const path = options.path.join('/')
+          console.log(`[oRPC client] → ${path}`, options.input)
+          const start = performance.now()
+          const result = await options.next()
+          console.log(`[oRPC client] ← ${path} (${(performance.now() - start).toFixed(1)}ms)`)
+          return result
+        },
+      ],
     })
     return createORPCClient(link)
   })
@@ -47,4 +57,4 @@ export const orpc: RouterClient<typeof router> = getORPCClient()
  * `as unknown as RpcClient` cast and validates that every leaf is a
  * callable oRPC procedure.
  */
-export const rpcPosts = createORPCAdapter(orpc, { namespaces: ['posts'] })
+export const rpcPosts = createORPCAdapter(orpc, { namespaces: ['posts'], router })

@@ -29,6 +29,14 @@ export interface CreateRpcAdapterOptions {
    * `false` (validate).
    */
   skipValidation?: boolean
+
+  /**
+   * The router definition object (e.g. `os.router({ posts: {...} })`).
+   * When provided, the adapter enumerates namespaces from the router
+   * definition instead of `Object.entries(client)`. This is required
+   * when the client is an oRPC Proxy (which has no enumerable own keys).
+   */
+  router?: Record<string, unknown>
 }
 
 /** Adapt an oRPC (or any direct-call) client into the `RpcClient` shape.
@@ -41,27 +49,48 @@ export const createORPCAdapter = (
   client: Record<string, unknown>,
   options: CreateRpcAdapterOptions = {},
 ): RpcClient => {
-  const { namespaces, skipValidation = false } = options
+  const { namespaces, skipValidation = false, router } = options
   const out: Record<string, Record<string, RpcProcedure | undefined>> = {}
 
-  for (const [ns, procs] of Object.entries(client)) {
+  // When `router` is provided, enumerate namespaces from the router
+  // definition. oRPC clients (createORPCClient / createRouterClient)
+  // return a Proxy with no enumerable own keys, so Object.entries()
+  // returns []. The router definition is a plain object we can walk.
+  const namespaceKeys = router
+    ? Object.keys(router)
+    : Object.keys(client)
+
+  for (const ns of namespaceKeys) {
     if (namespaces && !namespaces.includes(ns)) continue
-    if (procs === null || procs === undefined || typeof procs !== 'object') {
+
+    // Access the namespace on both client (Proxy) and router (plain object)
+    const nsClient = (client as Record<string, unknown>)[ns]
+    if (nsClient === null || nsClient === undefined || (typeof nsClient !== 'object' && typeof nsClient !== 'function')) {
       if (!skipValidation) {
-        console.warn(`[createORPCAdapter] namespace '${ns}' is not an object — skipping`)
+        console.warn(`[createORPCAdapter] namespace '${ns}' is not an object/function — skipping`)
       }
       continue
     }
 
+    // Enumerate procedures from the router definition (plain object)
+    const nsRouter = router ? (router[ns] as Record<string, unknown> | undefined) : undefined
+    const procKeys = nsRouter ? Object.keys(nsRouter) : Object.keys(nsClient as Record<string, unknown>)
+
     const procMap: Record<string, RpcProcedure | undefined> = {}
-    for (const [proc, value] of Object.entries(procs as Record<string, unknown>)) {
-      if (typeof value === 'function') {
-        procMap[proc] = value as RpcProcedure
-      } else if (value === undefined || value === null) {
+    for (const proc of procKeys) {
+      // Access the procedure on the client Proxy — this triggers the
+      // Proxy's `get` trap and returns a callable procedure function.
+      const procValue = typeof nsClient === 'function'
+        ? undefined
+        : (nsClient as Record<string, unknown>)[proc]
+
+      if (typeof procValue === 'function') {
+        procMap[proc] = procValue as RpcProcedure
+      } else if (procValue === undefined || procValue === null) {
         procMap[proc] = undefined
       } else if (!skipValidation) {
         console.warn(
-          `[createORPCAdapter] ${ns}.${proc} is not a function (${typeof value}) — skipping`,
+          `[createORPCAdapter] ${ns}.${proc} is not a function (${typeof procValue}) — skipping`,
         )
       }
     }

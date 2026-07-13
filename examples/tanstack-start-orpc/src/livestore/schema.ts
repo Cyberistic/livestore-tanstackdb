@@ -49,9 +49,9 @@ export const { tables, events, materializers, schema, readOnly } = createLiveSto
 export const rpcConfig = {
   posts: {
     create: { event: 'todoCreated' },
-    complete: { event: 'todoCompleted' },
+    complete: {},
     delete: { event: 'todoDeleted' },
-    bulkSeed: { event: 'todoBulkUpserted' },
+    bulkSeed: { event: 'todoBulkUpserted', map: (rows: readonly { text: string }[]) => ({ rows }) },
   },
 } as const
 
