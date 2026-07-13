@@ -234,9 +234,14 @@ const makeCommitUpdate = (
       for (const [field, value] of changeEntries) {
         if (typeof value !== 'boolean') continue
         const suffix = value ? 'Completed' : 'Uncompleted'
-        const e = (events as Record<string, any>)[
-          `${modelPrefix}${ucFirst(field)}${suffix}`
-        ]
+        // Match `createLiveStoreDb`'s `eventSuffixesFor`: a field whose
+        // PascalCase form already ends in "Completed" emits just
+        // "Completed" (no doubling), e.g. `completed` → `todoCompleted`
+        // not `todoCompletedCompleted`.
+        const cap = ucFirst(field)
+        const onKey =
+          cap.endsWith('Completed') ? `${modelPrefix}Completed` : `${modelPrefix}${cap}Completed`
+        const e = (events as Record<string, any>)[value ? onKey : `${modelPrefix}${cap}Uncompleted`]
         if (e) store.commit(e({ id }))
       }
       return

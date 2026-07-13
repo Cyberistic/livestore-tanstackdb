@@ -299,12 +299,17 @@ export function createMutations(
         if (onlyBooleans) {
           for (const [field, value] of changeEntries) {
             if (typeof value !== 'boolean') continue
-            const suffix = value ? 'Completed' : 'Uncompleted'
-            tryCommit(
-              store,
-              findEvent(events, `${modelPrefix}${ucFirst(field)}${suffix}`),
-              { id },
-            )
+            // Match `createLiveStoreDb`'s `eventSuffixesFor`: a field
+            // whose PascalCase form already ends in "Completed" emits
+            // just "Completed" (no doubling), e.g. `completed` →
+            // `todoCompleted` not `todoCompletedCompleted`.
+            const cap = ucFirst(field)
+            const onKey =
+              cap.endsWith('Completed')
+                ? `${modelPrefix}Completed`
+                : `${modelPrefix}${cap}Completed`
+            const key = value ? onKey : `${modelPrefix}${cap}Uncompleted`
+            tryCommit(store, findEvent(events, key), { id })
           }
         } else {
           const upsertKey = `${modelPrefix}Upserted`
