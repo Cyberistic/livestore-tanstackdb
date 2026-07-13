@@ -15,7 +15,7 @@ import { Schema } from "@livestore/livestore";
  * decode/encode ergonomics of an Effect Schema while TanStack DB
  * sees the `~standard` brand.
  */
-export const toStandardSchemaV1 = <T>(s: Schema.Schema<T, any, any>) =>
-  Schema.standardSchemaV1(
-    s as unknown as Schema.Schema<T, any, never>,
-  ) as unknown as StandardSchemaV1<unknown, T> & Schema.Schema<T, any, never>;
+export const toStandardSchemaV1 = <T>(s: Schema.Codec<T, any, any, any>) =>
+  Schema.toStandardSchemaV1(
+    s as unknown as Parameters<typeof Schema.toStandardSchemaV1>[0],
+  ) as unknown as StandardSchemaV1<unknown, T> & Schema.Codec<T, any, never, never>;

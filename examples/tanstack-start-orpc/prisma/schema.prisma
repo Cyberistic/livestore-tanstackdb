@@ -15,6 +15,10 @@ generator effect_client {
   tables              = "true"
   exportModelNames    = "true"
   exportModelNameType = "true"
+  // Effect v4 emits `Schema.toStandardSchemaV1(...)` instead of the
+  // removed `Schema.standardSchemaV1(...)`. Pairs with the LiveStore
+  // snapshot that bumped to `effect: ^4.0.0-beta`.
+  effectVersion       = "v4"
   standardSchemaV1    = "true"
   dateAs              = "Date"
 }

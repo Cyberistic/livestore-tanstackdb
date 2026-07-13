@@ -2,12 +2,7 @@ import { Events, makeSchema, Schema, SessionIdSymbol, State } from "@livestore/l
 
 import { toStandardSchemaV1, toLiveStoreSchema } from "./standardSchema.ts";
 import { buildLiveStoreTableSchema } from "./liveStoreTableSchema.ts";
-import type {
-  ColumnDescriptor,
-  PrimaryKeyColumns,
-  SoftDeleteColumns,
-  Tables,
-} from "./types.ts";
+import type { ColumnDescriptor, PrimaryKeyColumns, SoftDeleteColumns, Tables } from "./types.ts";
 
 /**
  * The `prisma-effect-schema-generator` runtime contract.
@@ -31,16 +26,16 @@ export const DEFAULT_TABLES: Tables = {};
 
 type GeneratedSchemas = Record<string, unknown>;
 
-type RowType<S> = S extends Schema.Schema<infer T, any, any> ? T : never;
+type RowType<S> = S extends Schema.Codec<infer T, any, any, any> ? T : never;
 
 type SyncedTableFor<S> = State.SQLite.TableDef<
   any,
   { readonly isClientDocumentTable: false },
-  Schema.Schema<RowType<S>, any, never>
+  Schema.Codec<RowType<S>, any, never, never>
 >;
 
 export type ClientDocumentInput = {
-  schema: Schema.Schema.Any;
+  schema: Schema.Top;
   default?: {
     id?: string | typeof SessionIdSymbol;
     value: unknown;
@@ -61,7 +56,7 @@ export type DefaultEventConfig = {
   softDeleteColumn?: string | null;
 };
 
-export type ClientDocuments = Record<string, Schema.Schema.Any | ClientDocumentInput>;
+export type ClientDocuments = Record<string, Schema.Top | ClientDocumentInput>;
 
 export interface LiveStoreDbConfig<T extends GeneratedSchemas> {
   /**
@@ -90,7 +85,7 @@ export interface LiveStoreDbConfig<T extends GeneratedSchemas> {
   softDeleteColumns?: SoftDeleteColumns;
   tables?: Tables;
 
-  clientDocuments?: Record<string, Schema.Schema.Any | ClientDocumentInput>;
+  clientDocuments?: Record<string, Schema.Top | ClientDocumentInput>;
   events?: Partial<Record<keyof T & string, DefaultEventConfig>>;
   version?: string;
 
@@ -152,11 +147,11 @@ const defaultValuesFor = (
 const insertableSchemaFor = (
   columns: ReadonlyArray<ColumnDescriptor> | undefined,
   modelSchema: unknown,
-): Record<string, Schema.Schema.Any> => {
+): Record<string, Schema.Top> => {
   const fields = fieldsOf(modelSchema);
   if (!fields || !columns) return {};
   const insertable = columns.filter((c) => c.required && c.type !== "boolean");
-  const out: Record<string, Schema.Schema.Any> = {};
+  const out: Record<string, Schema.Top> = {};
   for (const c of insertable) {
     const sig = fields[c.name];
     if (sig) out[c.name] = sig;
@@ -179,13 +174,12 @@ const capitalize = (s: string) => s[0]!.toUpperCase() + s.slice(1);
  * Read the `fields` map from a `Schema.Struct`/`Schema.TypeLiteral`
  * instance without an `as unknown` cast. The `Schema.Struct` /
  * `TypeLiteral` interfaces both declare `readonly fields: Readonly<Fields>`,
- * but `Schema.Schema.Any` is the broader `Schema<any, any, any>` type
+ * but `Schema.Top` is the broader `Schema<any, any, any>` type
  * which doesn't expose `fields`. This helper narrows the type with
  * a structural check before reading.
  */
-const fieldsOf = (schema: unknown): Readonly<Record<string, Schema.Schema.Any>> | undefined => {
-  const direct = (schema as { readonly fields?: Readonly<Record<string, Schema.Schema.Any>> })
-    .fields;
+const fieldsOf = (schema: unknown): Readonly<Record<string, Schema.Top>> | undefined => {
+  const direct = (schema as { readonly fields?: Readonly<Record<string, Schema.Top>> }).fields;
   if (direct) return direct;
 
   const ast = (
@@ -200,7 +194,7 @@ const fieldsOf = (schema: unknown): Readonly<Record<string, Schema.Schema.Any>> 
   ).ast;
   if (!ast?.propertySignatures) return undefined;
 
-  const out: Record<string, Schema.Schema.Any> = {};
+  const out: Record<string, Schema.Top> = {};
   for (const sig of ast.propertySignatures) {
     out[String(sig.name)] = (Schema as any).make(sig.type);
   }
@@ -317,7 +311,7 @@ export const createLiveStoreDb = <T extends GeneratedSchemas>(
     for (const [name, input] of Object.entries(config.clientDocuments)) {
       const isInput = (i: unknown): i is ClientDocumentInput =>
         typeof i === "object" && i !== null && "schema" in (i as object);
-      const docSchema = (isInput(input) ? input.schema : input) as Schema.Schema.Any;
+      const docSchema = (isInput(input) ? input.schema : input) as Schema.Top;
       const default_ = isInput(input) ? input.default : undefined;
       const args: { name: string; schema: unknown; default?: unknown } = {
         name,

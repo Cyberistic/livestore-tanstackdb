@@ -38,11 +38,12 @@ const COLUMN_TYPE_TO_SCHEMA = {
     // server responses, or old persisted rows, or a Date when created
     // in memory. Accept both on the type side and decode strings to Date;
     // encode back to ISO string for persistence.
-    Schema.transform(Schema.String, Schema.Union(Schema.String, Schema.DateFromSelf), {
-      strict: true,
-      decode: (s) => new Date(s),
-      encode: (d) => (typeof d === "string" ? d : d.toISOString()),
-    }) as unknown as Schema.Schema<Date, string, never>,
+    Schema.Union([
+      // Date already on the decoded side; no transform needed.
+      Schema.instanceOf(Date),
+      // String → Date via the DateFromString transformation codec.
+      Schema.DateFromString,
+    ]),
   bytes: () => Schema.Uint8Array,
   json: () => Schema.Unknown,
   unknown: () => Schema.Unknown,
@@ -57,14 +58,13 @@ export const buildLiveStoreTableSchema = (
   _modelName: string,
   table: TableDescriptor,
 ): Parameters<typeof toLiveStoreSchema>[0] => {
-  const fields: Record<string, Parameters<typeof Schema.Struct>[0][string]> = {};
-
-  for (const col of table.columns) {
+  const fieldPairs = table.columns.flatMap((col): Array<[string, Schema.Top]> => {
     const builder = COLUMN_TYPE_TO_SCHEMA[col.type];
-    if (!builder) continue;
+    if (!builder) return [];
     const base = builder();
-    fields[col.name] = col.required ? base : Schema.optional(base);
-  }
+    return [[col.name, (col.required ? base : Schema.optional(base)) as Schema.Top]];
+  });
+  const fields = Object.fromEntries(fieldPairs) as Parameters<typeof Schema.Struct>[0];
 
   return Schema.Struct(fields) as unknown as Parameters<typeof toLiveStoreSchema>[0];
 };

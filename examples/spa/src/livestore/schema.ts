@@ -10,11 +10,11 @@ import { EventSchema, TodoSchema } from "../../prisma/generated/client-schemas/i
 
 const UiStateSchema = Schema.Struct({
   newTodoText: Schema.String,
-  filter: Schema.Union(
+  filter: Schema.Union([
     Schema.Literal("all"),
     Schema.Literal("active"),
     Schema.Literal("completed"),
-  ),
+  ]),
 });
 
 const lsdb = createLiveStoreDb({

@@ -9,11 +9,11 @@ import { liveStoreDbConfig } from "../../prisma/generated/livestore/index.ts";
  */
 const UiStateSchema = Schema.Struct({
   newTodoText: Schema.String,
-  filter: Schema.Union(
+  filter: Schema.Union([
     Schema.Literal("all"),
     Schema.Literal("active"),
     Schema.Literal("completed"),
-  ),
+  ]),
 });
 
 export const { tables, events, materializers, schema, readOnly } = createLiveStoreDb({

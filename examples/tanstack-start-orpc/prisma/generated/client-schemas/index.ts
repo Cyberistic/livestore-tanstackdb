@@ -3,7 +3,7 @@
 
 import { Schema } from "effect"
 
-export const EventSchema = Schema.standardSchemaV1(Schema.Struct({
+export const EventSchema = Schema.toStandardSchemaV1(Schema.Struct({
   id: Schema.Number,
   storeId: Schema.String,
   name: Schema.String,
@@ -11,7 +11,7 @@ export const EventSchema = Schema.standardSchemaV1(Schema.Struct({
   createdAt: Schema.Date,
 }))
 
-export const TodoSchema = Schema.standardSchemaV1(Schema.Struct({
+export const TodoSchema = Schema.toStandardSchemaV1(Schema.Struct({
   id: Schema.String,
   text: Schema.String,
   completed: Schema.Boolean,
