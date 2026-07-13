@@ -70,6 +70,16 @@ export interface CreateMutationsConfig {
 
 export interface MutationCallbacks {
   commitInsert: (row: any) => void
+  /**
+   * Tier 1.7 — bulk insert. Called once per transaction when the
+   * schema declares a `v1.<Model>BulkUpserted` event. Receives every
+   * row in the transaction; the handler should commit a single event
+   * with `{ rows }` so the entire batch becomes one round-trip.
+   *
+   * Optional — when absent, `commitInsert` is called per row (legacy
+   * N-event behaviour).
+   */
+  commitBulkInsert?: (rows: any[]) => void
   commitUpdate: (original: any, changes: any) => void
   commitDelete: (row: any) => void
 }
@@ -193,6 +203,7 @@ export function createMutations(
   const modelPrefix = lcFirst(modelName)
   const createdKey = `${modelPrefix}Created`
   const deletedKey = `${modelPrefix}Deleted`
+  const bulkUpsertedKey = `${modelPrefix}BulkUpserted`
 
   // ── Partition the rpcConfig into insert/update/delete buckets ──
   // One procedure may land in multiple buckets (the "upsert by
@@ -248,11 +259,27 @@ export function createMutations(
     fireRpc(entry.procFn, payload)
   }
 
+  // ── Tier 1.7 — auto-detect the BulkUpserted event ──
+  // When the schema declares `v1.<Model>BulkUpserted`, emit one event
+  // per transaction instead of N per-row `*Created` events. Falls back
+  // to undefined when the event is absent; `useTable`'s onInsert handler
+  // then loops `commitInsert` per row.
+  const bulkUpsertedEvent = findEvent(events, bulkUpsertedKey)
+  const commitBulkInsert: MutationCallbacks['commitBulkInsert'] = bulkUpsertedEvent
+    ? (rows) => {
+        tryCommit(store, bulkUpsertedEvent, { rows })
+        for (const e of partitioned.insert) runProc(e, rows as never)
+      }
+    : undefined
+
   return {
     commitInsert: (row) => {
       tryCommit(store, findEvent(events, insertEventKey), row)
       for (const e of partitioned.insert) runProc(e, row)
     },
+    ...(commitBulkInsert
+      ? { commitBulkInsert }
+      : {}),
 
     commitUpdate: (original, changes) => {
       const id = ((changes as { id?: unknown }).id ??

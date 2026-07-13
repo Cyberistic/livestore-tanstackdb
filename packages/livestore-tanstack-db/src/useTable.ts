@@ -160,6 +160,24 @@ const makeCommitInsert = (
   }
 }
 
+/**
+ * Tier 1.7 — bulk insert. Emits a single `v1.<Model>BulkUpserted` event
+ * carrying every row in the transaction. Returns `null` when the schema
+ * doesn't define the event so the caller falls back to per-row commits.
+ */
+const makeCommitBulkInsert = (
+  store: Store<any>,
+  name: TableName,
+  events: Record<string, any>,
+): MutationCallbacks['commitBulkInsert'] | null => {
+  const modelPrefix = lcFirst(name)
+  const e = (events as Record<string, any>)[`${modelPrefix}BulkUpserted`]
+  if (!e) return null
+  return (rows) => {
+    store.commit(e({ rows }))
+  }
+}
+
 const makeCommitDelete = (
   store: Store<any>,
   name: TableName,
@@ -215,16 +233,25 @@ const buildCommitCallbacks = (
   events: Record<string, any>,
 ): {
   commitInsert?: MutationCallbacks['commitInsert']
+  commitBulkInsert?: MutationCallbacks['commitBulkInsert']
   commitUpdate?: MutationCallbacks['commitUpdate']
   commitDelete?: MutationCallbacks['commitDelete']
 } => {
   if (!(events as Record<string, any>)[`${name}Set`]) {
     // Synced table — has Created/Deleted events
-    return {
+    const base: {
+      commitInsert: MutationCallbacks['commitInsert']
+      commitDelete: MutationCallbacks['commitDelete']
+      commitUpdate: MutationCallbacks['commitUpdate']
+      commitBulkInsert?: MutationCallbacks['commitBulkInsert']
+    } = {
       commitInsert: makeCommitInsert(store, name, events),
       commitDelete: makeCommitDelete(store, name, events),
       commitUpdate: makeCommitUpdate(store, name, events),
     }
+    const bulk = makeCommitBulkInsert(store, name, events)
+    if (bulk) base.commitBulkInsert = bulk
+    return base
   }
   // Client document — has a `set` event
   return {
@@ -273,6 +300,11 @@ export interface UseTableOptions<TName extends TableName> {
    * emitted by `createLiveStoreDb`. Pass any of these to override.
    */
   commitInsert?: MutationCallbacks['commitInsert']
+  /**
+   * Tier 1.7 — bulk insert override. Auto-derived when the schema has
+   * a `v1.<Model>BulkUpserted` event.
+   */
+  commitBulkInsert?: MutationCallbacks['commitBulkInsert']
   commitUpdate?: MutationCallbacks['commitUpdate']
   commitDelete?: MutationCallbacks['commitDelete']
   /**
@@ -332,7 +364,7 @@ export const getCollection = <TName extends TableName>(
   name: TName,
   options: UseTableOptions<TName> & { liveStore: UseTableLiveStore },
 ): Collection<LiveStoreRow, string> => {
-  const { liveStore, where, rpc, commitInsert, commitUpdate, commitDelete } = options
+  const { liveStore, where, rpc, commitInsert, commitBulkInsert, commitUpdate, commitDelete } = options
   const store = liveStore.store
   const key = collectionCacheKey(store['storeId'] ?? '', name, where, rpc)
   const cached = collectionCache.get(key)
@@ -351,6 +383,7 @@ export const getCollection = <TName extends TableName>(
   const auto = isReadOnly ? {} : buildCommitCallbacks(store, name, live)
 
   const insert = commitInsert ?? auto.commitInsert
+  const bulkInsert = commitBulkInsert ?? auto.commitBulkInsert
   const update = commitUpdate ?? auto.commitUpdate
   const delete_ = commitDelete ?? auto.commitDelete
 
@@ -376,6 +409,7 @@ export const getCollection = <TName extends TableName>(
   // handlers. `mutationOverrides` and `auto` may both contribute
   // handlers — `mutationOverrides` takes priority when present.
   const finalInsert = mutationOverrides?.commitInsert ?? insert
+  const finalBulkInsert = mutationOverrides?.commitBulkInsert ?? bulkInsert
   const finalUpdate = mutationOverrides?.commitUpdate ?? update
   const finalDelete = mutationOverrides?.commitDelete ?? delete_
 
@@ -389,10 +423,29 @@ export const getCollection = <TName extends TableName>(
       ...(finalInsert
         ? {
             onInsert: async ({ transaction }) => {
-              for (const m of transaction.mutations) {
+              // Tier 1.7 — when `commitBulkInsert` is wired AND the
+              // transaction carries multiple rows, dispatch to the
+              // bulk handler so a single `v1.<Model>BulkUpserted`
+              // event is emitted. Single-row transactions still go
+              // through `commitInsert` for back-compat.
+              const mutations = transaction.mutations
+              if (finalBulkInsert && mutations.length > 1) {
+                finalBulkInsert(
+                  mutations.map((m) => m.modified) as unknown as LiveStoreRow[],
+                )
+                return
+              }
+              for (const m of mutations) {
                 finalInsert(m.modified as LiveStoreRow)
               }
             },
+            ...(finalBulkInsert
+              ? {
+                  onBulkInsert: async ({ rows }) => {
+                    finalBulkInsert(rows as unknown as LiveStoreRow[])
+                  },
+                }
+              : {}),
           }
         : {}),
       ...(finalUpdate
@@ -452,6 +505,7 @@ export const useTable = <TName extends TableName>(
       options.where,
       options.rpc,
       options.commitInsert,
+      options.commitBulkInsert,
       options.commitUpdate,
       options.commitDelete,
     ],
@@ -492,6 +546,7 @@ export const useTables = <Spec extends Record<string, UseTableOptions<TableName>
         opts.where,
         opts.rpc,
         opts.commitInsert,
+        opts.commitBulkInsert,
         opts.commitUpdate,
         opts.commitDelete,
       ],

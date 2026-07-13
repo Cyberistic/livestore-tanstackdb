@@ -82,6 +82,19 @@ export interface LiveStoreCollectionConfig<
   onInsert?: (params: InsertMutationFnParams<T, string, LiveStoreCollectionUtils<T>>) => Promise<void>
 
   /**
+   * Tier 1.7 — bulk insert. When the schema has a `v1.<Model>BulkUpserted`
+   * event, `onInsert` (above) is routed here for any transaction with
+   * more than one mutation. Receives the rows from the transaction.
+   *
+   * Falls through to `onInsert` (per-row) when this is omitted.
+   */
+  onBulkInsert?: (params: {
+    rows: ReadonlyArray<T>
+    transaction: InsertMutationFnParams<T, string, LiveStoreCollectionUtils<T>>['transaction']
+    collection: InsertMutationFnParams<T, string, LiveStoreCollectionUtils<T>>['collection']
+  }) => Promise<void>
+
+  /**
    * Translate a TanStack DB update into a LiveStore event commit.
    */
   onUpdate?: (params: UpdateMutationFnParams<T, string, LiveStoreCollectionUtils<T>>) => Promise<void>
@@ -159,6 +172,7 @@ export function liveStoreCollectionOptions<T extends LiveStoreRow>(
     isRowLive = defaultIsRowLive as IsRowLive<T>,
     coerce = ((row: T) => row as unknown as T) as CoerceRow<T, T>,
     onInsert,
+    onBulkInsert,
     onUpdate,
     onDelete,
     ...restConfig
@@ -258,6 +272,19 @@ export function liveStoreCollectionOptions<T extends LiveStoreRow>(
 
   const wrappedOnInsert = onInsert
     ? async (params: InsertMutationFnParams<T, string, LiveStoreCollectionUtils<T>>) => {
+        // Tier 1.7 — when a `onBulkInsert` is provided AND the transaction
+        // carries more than one mutation, dispatch to bulk instead of
+        // looping the per-row handler. Single-row transactions still go
+        // through `onInsert` so existing callers see no behaviour change.
+        const mutations = (params.transaction as { mutations: ReadonlyArray<{ modified: T }> }).mutations
+        if (onBulkInsert && mutations.length > 1) {
+          await onBulkInsert({
+            rows: mutations.map((m) => m.modified),
+            transaction: params.transaction,
+            collection: params.collection,
+          })
+          return
+        }
         await onInsert(params)
       }
     : undefined

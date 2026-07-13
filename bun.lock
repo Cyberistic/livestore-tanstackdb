@@ -37,7 +37,7 @@
         "@types/react-dom": "^19.2.3",
         "@vitejs/plugin-react": "5.1.2",
         "alchemy": "0.93.12",
-        "prisma-effect-schema-generator": "^0.1.5",
+        "prisma-effect-schema-generator": "^0.1.8",
         "tsx": "^4.23.0",
         "typescript": "6.0.3",
         "vite": "7.3.1",
@@ -1081,7 +1081,7 @@
 
     "prisma": ["prisma@7.8.0", "", { "dependencies": { "@prisma/config": "7.8.0", "@prisma/dev": "0.24.3", "@prisma/engines": "7.8.0", "@prisma/studio-core": "0.27.3", "mysql2": "3.15.3", "postgres": "3.4.7" }, "peerDependencies": { "better-sqlite3": ">=9.0.0", "typescript": ">=5.4.0" }, "optionalPeers": ["better-sqlite3", "typescript"], "bin": { "prisma": "build/index.js" } }, "sha512-yfN4yrw7HV9kEJhoy1+jgah0jafEIQsf7uWouSsM8MvJtlubsk+kM7AIBWZ8+GJl74Yj3c+nbYqBkMOxtsZ3Lw=="],
 
-    "prisma-effect-schema-generator": ["prisma-effect-schema-generator@0.1.5", "", { "dependencies": { "@prisma/generator-helper": "^7.0.0" }, "peerDependencies": { "effect": "^3.0.0 || ^4.0.0" }, "optionalPeers": ["effect"], "bin": { "prisma-effect-schema-generator": "dist/index.js" } }, "sha512-8m/8V7yuYumcAHuKIMx2+Fu11k/txnbrJf2Lxonc8pjJfDJuZMMtm+ix5b9PTkix8slQvjYe9rYhE9MHH8Ci0w=="],
+    "prisma-effect-schema-generator": ["prisma-effect-schema-generator@0.1.8", "", { "dependencies": { "@prisma/generator-helper": "^7.0.0" }, "peerDependencies": { "effect": "^3.0.0 || ^4.0.0" }, "optionalPeers": ["effect"], "bin": { "prisma-effect-schema-generator": "dist/index.js" } }, "sha512-5YQcYDJOhsAya/ycrRfQX1GcwdYOFmC0ervYfmELehkbdGRlpogzxV53C9h10d1ic9zaEIEk1ZOby67tyG+IPw=="],
 
     "process-nextick-args": ["process-nextick-args@2.0.1", "", {}, "sha512-3ouUOpQhtgrbOa17J7+uxOTpITYWaGP7/AhoR3+A+/1e9skrzelGi/dXzEYyvbxubEF6Wn2ypscTKiKJFFn1ag=="],
 

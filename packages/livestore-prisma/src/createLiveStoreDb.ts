@@ -51,6 +51,13 @@ export type ClientDocumentInput = {
 export type DefaultEventConfig = {
   includeCreated?: boolean
   includeDeleted?: boolean
+  /**
+   * Emit a `v1.<Model>BulkUpserted` event that batches N row inserts into
+   * one event. Materialised as N `INSERT`s in one transaction. Tier 1.7 of
+   * the dream-list — replaces N round-trips with one. Off by default to
+   * preserve back-compat for schemas that don't define it.
+   */
+  includeBulkUpserted?: boolean
   booleanColumns?: string[]
   softDeleteColumn?: string | null
 }
@@ -243,6 +250,25 @@ export const createLiveStoreDb = <T extends GeneratedSchemas>(
       const target = tables[modelName]
       materializers[createdName] = (args: Record<string, unknown>) =>
         target.insert({ ...defaults, ...args })
+    }
+
+    // Tier 1.7 — bulk event. When the consumer opts in, emit a single
+    // `v1.<Model>BulkUpserted` event whose payload is `{ rows: T[] }`.
+    // The materialiser returns N inserts that run inside the same
+    // event-driven write — only one event/turn, not N.
+    if (cfg.includeBulkUpserted === true) {
+      const bulkName = `${version}.${modelName}BulkUpserted`
+      const rowFields = insertableSchemaFor(columns, modelSchema)
+      const rowsSchema = Schema.Array(Schema.Struct(rowFields))
+      const bulkSchema = Schema.Struct({ rows: rowsSchema })
+      events[`${modelPrefix}BulkUpserted`] = Events.synced({
+        name: bulkName,
+        schema: toStandardSchemaV1(bulkSchema),
+      })
+      const defaults = defaultValuesFor(columns)
+      const target = tables[modelName]
+      materializers[bulkName] = (args: { rows: ReadonlyArray<Record<string, unknown>> }) =>
+        args.rows.map((row) => target.insert({ ...defaults, ...row }))
     }
 
     if (cfg.includeDeleted !== false && softDeleteCol) {

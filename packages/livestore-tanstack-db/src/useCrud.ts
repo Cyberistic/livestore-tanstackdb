@@ -17,9 +17,21 @@ import { useTable, type UseTableOptions, type TableName } from './useTable.ts'
  * - `update(id, changes)` — pass a `Partial<TRow>` to merge, or a
  *   callback that mutates a draft in place (TanStack DB supports both).
  * - `remove(id)` — `collection.delete(id)`.
+ * - `bulkInsert(rows)` — Tier 1.7 of the dream-list. Forwards an array
+ *   of rows to `collection.insert(rows)` in a single transaction. When
+ *   the schema declares a `v1.<Model>BulkUpserted` event, the package
+ *   auto-wires the commit handler so ONE event is committed instead of
+ *   N per-row `*Created` events. Rows missing an `id` get one via
+ *   `crypto.randomUUID()`.
+ * - `bulkUpsert(rows)` — same as `bulkInsert`; the name signals intent
+ *   (a batch that may overwrite existing rows). The materialised event
+ *   is the same — wiring keeps a single `v1.<Model>BulkUpserted` per
+ *   transaction.
  */
 export interface CrudActions<TRow extends LiveStoreRow> {
   create: (input: Omit<TRow, 'id'> & { id?: string }) => void
+  bulkInsert: (rows: ReadonlyArray<Omit<TRow, 'id'> & { id?: string }>) => void
+  bulkUpsert: (rows: ReadonlyArray<Omit<TRow, 'id'> & { id?: string }>) => void
   update: (
     id: string,
     changes: Partial<TRow> | ((draft: TRow) => void),
@@ -68,10 +80,31 @@ export const useCrud = <TRow extends LiveStoreRow = LiveStoreRow>(
 
   const actions = useMemo<CrudActions<TRow>>(() => {
     const coll = collection as unknown as Collection<TRow, string>
+
+    // Tier 1.7 — fill missing ids in one pass so the bulk insert can be
+    // a single `collection.insert(rows)` call (the optimistic handler
+    // groups them into one transaction and one `v1.<Model>BulkUpserted`
+    // event when the schema declares it).
+    const fillMissingIds = (
+      rows: ReadonlyArray<Omit<TRow, 'id'> & { id?: string }>,
+    ): TRow[] =>
+      rows.map((row) => {
+        const id = row.id ?? crypto.randomUUID()
+        return { ...row, id } as unknown as TRow
+      })
+
     return {
       create: (input) => {
         const id = input.id ?? crypto.randomUUID()
         coll.insert({ ...input, id } as unknown as TRow)
+      },
+      bulkInsert: (rows) => {
+        if (rows.length === 0) return
+        coll.insert(fillMissingIds(rows) as unknown as TRow)
+      },
+      bulkUpsert: (rows) => {
+        if (rows.length === 0) return
+        coll.insert(fillMissingIds(rows) as unknown as TRow)
       },
       update: (id, changes) => {
         if (typeof changes === 'function') {

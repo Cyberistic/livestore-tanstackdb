@@ -1,13 +1,21 @@
-import { type ChangeEvent, type KeyboardEvent, useCallback } from 'react'
+import { type ChangeEvent, type KeyboardEvent, useCallback, useMemo } from 'react'
+
+import { useCrud } from '@cyberistic/livestore-tanstack-db'
 
 import { uiState$ } from '../livestore/queries.ts'
-import { events } from '../livestore/schema.ts'
+import { events, schema, tables } from '../livestore/schema.ts'
 import { useAppStore } from '../livestore/store.ts'
-import { useTodoCollection } from '../db/todoCollection.ts'
+import type { Todo } from '../db/todoSchema.ts'
 
 export const Header = () => {
   const store = useAppStore()
-  const todosCollection = useTodoCollection()
+  const liveStore = useMemo(
+    () => ({ store, tables, events, schema }),
+    [store],
+  )
+  const [todosCollection, { create, bulkUpsert }] = useCrud<Todo>('Todo', {
+    liveStore,
+  })
   const { newTodoText } = store.useQuery(uiState$)
 
   const updatedNewTodoText = useCallback(
@@ -17,17 +25,19 @@ export const Header = () => {
 
   const todoCreated = useCallback(
     () => {
-      todosCollection.insert({
-        id: crypto.randomUUID(),
-        text: newTodoText,
-        completed: false,
-        deletedAt: null,
-        createdAt: new Date(),
-      } as any)
+      create({ text: newTodoText } as Partial<Todo> as never)
       store.commit(events.uiStateSet({ newTodoText: '' }))
     },
-    [newTodoText, store, todosCollection],
+    [create, newTodoText, store],
   )
+
+  const seedBulk = useCallback(() => {
+    bulkUpsert([
+      { text: 'Bulk row 1' } as Partial<Todo> as never,
+      { text: 'Bulk row 2' } as Partial<Todo> as never,
+      { text: 'Bulk row 3' } as Partial<Todo> as never,
+    ])
+  }, [bulkUpsert])
 
   const handleChange = useCallback(
     (e: ChangeEvent<HTMLInputElement>) => updatedNewTodoText(e.target.value),
@@ -53,6 +63,10 @@ export const Header = () => {
         onChange={handleChange}
         onKeyDown={handleKeyDown}
       />
+      <button type="button" onClick={seedBulk} style={{ marginLeft: 8 }}>
+        Seed 3 via bulkUpsert
+      </button>
+      <span style={{ marginLeft: 8 }}>(rows: {todosCollection.size})</span>
     </header>
   )
 }

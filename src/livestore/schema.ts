@@ -30,6 +30,12 @@ const lsdb = createLiveStoreDb({
   tables: TABLES,
   primaryKeyColumns: PRIMARY_KEY_COLUMNS,
   softDeleteColumns: SOFT_DELETE_COLUMNS,
+  // Tier 1.7 — opt the Todo model into the bulk event so
+  // `useCrud('Todo').bulkUpsert([...])` collapses N row inserts into a
+  // single `v1.TodoBulkUpserted { rows }` event.
+  events: {
+    Todo: { includeBulkUpserted: true },
+  },
   clientDocuments: {
     uiState: {
       schema: UiStateSchema,
