@@ -1,5 +1,9 @@
 import alchemy from 'alchemy'
-import { D1Database, DurableObjectNamespace, Vite } from 'alchemy/cloudflare'
+import {
+  D1Database,
+  DurableObjectNamespace,
+  TanStackStart,
+} from 'alchemy/cloudflare'
 
 const app = await alchemy('tanstack-start-orpc-example')
 
@@ -15,17 +19,12 @@ export const syncBackend = await DurableObjectNamespace('sync-backend', {
   sqlite: true,
 })
 
-export const site = await Vite('site', {
-  name: 'tanstack-start-orpc-site',
-  entrypoint: './dist/server/server.js',
-  assets: './dist/client',
+export const site = await TanStackStart('tanstack-start-orpc', {
   bindings: {
     DB: db,
     SYNC_BACKEND_DO: syncBackend,
   },
-  compatibilityDate: '2025-05-08',
-  compatibilityFlags: ['enable_request_signal', 'nodejs_compat'],
-  adopt: true,
+  compatibilityFlags: ['nodejs_compat'],
 })
 
 console.log(`Worker deployed at: ${site.url}`)

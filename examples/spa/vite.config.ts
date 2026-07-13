@@ -1,21 +1,20 @@
-import process from 'node:process'
 
-import { cloudflare } from '@cloudflare/vite-plugin'
+import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { livestoreDevtoolsPlugin } from '@livestore/devtools-vite'
-import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vite'
+import viteReact from "@vitejs/plugin-react";
+import alchemy from "alchemy/cloudflare/tanstack-start";
+import { defineConfig } from "vite";
 
 export default defineConfig({
-  server: {
-    port: process.env.PORT ? Number(process.env.PORT) : 60_001,
-    fs: { strict: false },
+  build: {
+    target: "esnext",
+    rollupOptions: {
+      external: ["node:async_hooks", "cloudflare:workers"],
+    },
   },
-  worker: { format: 'es' },
   plugins: [
-    cloudflare(),
-    react({
-      exclude: [/packages\/.*\/dist\//],
-    }),
-    livestoreDevtoolsPlugin({ schemaPath: './src/livestore/schema.ts' }),
+    alchemy(),
+    viteReact(),
+    livestoreDevtoolsPlugin({ schemaPath: './src/livestore/schema.ts' })
   ],
-})
+});
