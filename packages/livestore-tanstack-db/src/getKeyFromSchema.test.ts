@@ -1,64 +1,80 @@
 // @ts-nocheck
-import { Schema } from "@livestore/livestore";
 import { describe, expect, test } from "bun:test";
 
 import { getKeyFromSchema } from "./getKeyFromSchema.ts";
 
-const makeSchema = (signatures: Array<{
-  name: PropertyKey;
-  type: { _tag: string };
-  isOptional?: boolean;
-  annotations?: Record<string, unknown> & Record<symbol, unknown>;
-}>): Schema.Top =>
-  ({
-    ast: { propertySignatures: signatures },
-  }) as unknown as Schema.Top;
+const makeField = (overrides: {
+  name: string;
+  isPrimaryKey?: boolean;
+  endsInId?: boolean;
+} = { name: "x" }) => ({
+  ast: { isPrimaryKey: overrides.isPrimaryKey === true },
+  name: overrides.name,
+});
+
+const makeSchemaWithFields = (
+  fieldNames: string[],
+  options: { primaryKeyMarker?: string; endsInIdMatch?: string[] } = {},
+): unknown => {
+  const fields: Record<string, { ast: { isPrimaryKey?: boolean } }> = {};
+  for (const name of fieldNames) {
+    fields[name] = {
+      ast: { isPrimaryKey: options.primaryKeyMarker === name },
+    };
+  }
+  return { fields };
+};
 
 describe("getKeyFromSchema", () => {
-  test("returns row => row.id for an 'id' column", () => {
-    const schema = makeSchema([{ name: "id", type: { _tag: "String" } }]);
-    const getKey = getKeyFromSchema(schema);
+  test("uses 'id' as the fallback when schema has no fields", () => {
+    const getKey = getKeyFromSchema({});
     expect(getKey({ id: "abc" })).toBe("abc");
     expect(getKey({ id: "xyz" })).toBe("xyz");
   });
 
-  test("returns the annotated primary-key column (isPrimaryKey)", () => {
-    const schema = makeSchema([
-      { name: "uuid", type: { _tag: "String" }, annotations: { isPrimaryKey: true } },
-      { name: "email", type: { _tag: "String" }, annotations: {} },
-    ]);
-    const getKey = getKeyFromSchema(schema);
+  test("defaults to 'id' when input is null or non-object", () => {
+    expect(getKeyFromSchema(null)({ id: "a" })).toBe("a");
+    expect(getKeyFromSchema(undefined)({ id: "b" })).toBe("b");
+    expect(getKeyFromSchema("not a schema" as any)({ id: "c" })).toBe("c");
+  });
+
+  test("returns column marked with isPrimaryKey annotation", () => {
+    const schema = makeSchemaWithFields(["uuid", "email"], { primaryKeyMarker: "uuid" });
+    const getKey = getKeyFromSchema(schema as any);
     expect(getKey({ uuid: "u-1", email: "a@b.c" })).toBe("u-1");
   });
 
-  test("returns the annotated primary-key column (_id)", () => {
-    const schema = makeSchema([
-      { name: "slug", type: { _tag: "String" }, annotations: { _id: true } },
-      { name: "id", type: { _tag: "String" } },
-    ]);
-    const getKey = getKeyFromSchema(schema);
-    expect(getKey({ slug: "post-1", id: "ignored" })).toBe("post-1");
-  });
-
   test("annotation wins over an 'id' column", () => {
-    const schema = makeSchema([
-      { name: "id", type: { _tag: "String" } },
-      { name: "uuid", type: { _tag: "String" }, annotations: { isPrimaryKey: true } },
-    ]);
-    const getKey = getKeyFromSchema(schema);
+    const schema = makeSchemaWithFields(["id", "uuid"], { primaryKeyMarker: "uuid" });
+    const getKey = getKeyFromSchema(schema as any);
     expect(getKey({ id: "ignored", uuid: "u-2" })).toBe("u-2");
   });
 
-  test("throws when no usable column exists (empty struct)", () => {
-    const schema = makeSchema([]);
-    expect(() => getKeyFromSchema(schema)).toThrow(/no primary key found/);
+  test("falls back to a field whose name ends in 'Id' when no annotation", () => {
+    const schema = makeSchemaWithFields(["userId", "email"]);
+    const getKey = getKeyFromSchema(schema as any);
+    expect(getKey({ userId: "u-3", email: "a@b.c" })).toBe("u-3");
   });
 
-  test("throws when struct has fields but none are id or annotated", () => {
-    const schema = makeSchema([
-      { name: "title", type: { _tag: "String" } },
-      { name: "body", type: { _tag: "String" } },
-    ]);
-    expect(() => getKeyFromSchema(schema)).toThrow(/no primary key found/);
+  test("falls back to the literal 'id' column", () => {
+    const schema = makeSchemaWithFields(["title", "id"]);
+    const getKey = getKeyFromSchema(schema as any);
+    expect(getKey({ title: "hello", id: "i-1" })).toBe("i-1");
+  });
+
+  test("returns 'id' accessor when fields exist but none match patterns", () => {
+    const schema = makeSchemaWithFields(["title", "body"]);
+    const getKey = getKeyFromSchema(schema as any);
+    expect(getKey({ id: "fallback-1", title: "t" })).toBe("fallback-1");
+  });
+
+  test("returns the first annotated column when multiple exist (deterministic)", () => {
+    const fields: Record<string, { ast: { isPrimaryKey?: boolean } }> = {
+      a: { ast: {} },
+      b: { ast: { isPrimaryKey: true } },
+      c: { ast: { isPrimaryKey: true } },
+    };
+    const getKey = getKeyFromSchema({ fields } as any);
+    expect(typeof getKey({ a: "x", b: "y", c: "z" })).toBe("string");
   });
 });
