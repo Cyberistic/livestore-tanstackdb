@@ -6,7 +6,7 @@
 > report — do not improvise. When done, update the status row for this plan
 > in `plans/README.md`.
 >
-> **Drift check (run first)**: `git diff --stat a46750d8..HEAD -- packages/livestore-tanstack-db/src/useTable.ts`
+> **Drift check (run first)**: `git diff --stat fd32d525..HEAD -- packages/livestore-tanstack-db/src/useTable.ts`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -18,7 +18,7 @@
 - **Risk**: MED
 - **Depends on**: 001-unit-tests
 - **Category**: perf
-- **Planned at**: commit `a46750d8`, 2026-07-14
+- **Planned at**: commit `fd32d525`, 2026-07-14
 - **Issue**: omit
 
 ## Why this matters
