@@ -24,7 +24,7 @@
  *
  * without threading the store through the tree.
  */
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { Store } from "@livestore/livestore";
 import type { Collection } from "@tanstack/db";
 
@@ -47,13 +47,12 @@ export interface LiveStoreDevtoolsBridgeProps {
 
 // We deliberately don't depend on @livestore/adapter-web at the
 // top level — most consumers pass the store explicitly. The fallback
-// is a lazy `require()` that only runs if `store` is omitted.
+// is a lazy dynamic `import()` that only runs if `store` is omitted.
 let _fallbackStore: Store<any> | null | undefined = undefined;
-const resolveAppStore = (): Store<any> | null => {
+const resolveAppStore = async (): Promise<Store<any> | null> => {
   if (_fallbackStore !== undefined) return _fallbackStore;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require("@livestore/adapter-web") as {
+    const mod = (await import("@livestore/adapter-web")) as {
       getOrCreateAppStore?: () => Store<any> | null;
     };
     _fallbackStore =
@@ -87,9 +86,18 @@ export const LiveStoreDevtoolsBridge: React.FC<LiveStoreDevtoolsBridgeProps> = (
   store,
   collections,
 }) => {
-  // Resolve the store: prefer the explicit `store` prop, fall back
-  // to the module-cached app store.
-  const resolvedStore = store ?? resolveAppStore();
+  const [resolvedStore, setResolvedStore] = useState<Store<any> | null>(store ?? null);
+
+  useEffect(() => {
+    if (store) return;
+    let cancelled = false;
+    resolveAppStore().then((s) => {
+      if (!cancelled) setResolvedStore(s);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [store]);
 
   useLiveStoreDevtoolsBridge(resolvedStore);
 
