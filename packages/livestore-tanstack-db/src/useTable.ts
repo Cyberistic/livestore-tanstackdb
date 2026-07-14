@@ -52,6 +52,14 @@ export interface UseTableLiveStore {
    * hand-rolled `liveStore` option.
    */
   oRPC?: RpcClient;
+  /**
+   * Per-model soft-delete column name. Mirrors
+   * `createLiveStoreDb`'s `softDeleteColumns` input — `deleteEventKey`
+   * payloads (`commitDelete`) use the configured column instead of the
+   * hardcoded `"deletedAt"`. Falls back to schema-driven detection via
+   * `softDeleteColumnFromSchema(tableSchema)`, then to `"deletedAt"`.
+   */
+  softDeleteColumns?: Record<string, string>;
 }
 
 const useLiveStore = (): UseTableLiveStore | null => {
@@ -204,16 +212,22 @@ const makeCommitBulkInsert = (
   };
 };
 
-const makeCommitDelete = (store: Store<any>, name: TableName, events: Record<string, any>) => {
+const makeCommitDelete = (
+  store: Store<any>,
+  name: TableName,
+  events: Record<string, any>,
+  softDeleteColumn: string,
+) => {
   const e = syncedEventFor(name, events, "Deleted");
   // Takes the raw row — `commitDelete` in `MutationCallbacks` is
   // `(row) => void`, and the caller passes `mutation.original` directly.
-  // We extract `id` and append `deletedAt` (soft-delete) inside the event.
+  // We extract `id` and append the soft-delete timestamp under the
+  // configured column (defaults to `"deletedAt"`).
   return (row: LiveStoreRow) => {
     store.commit(
       e({
         id: (row as { id: string }).id,
-        deletedAt: new Date(),
+        [softDeleteColumn]: new Date(),
       } as unknown as Parameters<typeof e>[0]),
     );
   };
@@ -264,6 +278,7 @@ export const buildCommitCallbacks = (
   store: Store<any>,
   name: TableName,
   events: Record<string, any>,
+  softDeleteColumn: string = "deletedAt",
 ): {
   commitInsert?: MutationCallbacks["commitInsert"];
   commitBulkInsert?: MutationCallbacks["commitBulkInsert"];
@@ -279,7 +294,7 @@ export const buildCommitCallbacks = (
       commitBulkInsert?: MutationCallbacks["commitBulkInsert"];
     } = {
       commitInsert: makeCommitInsert(store, name, events),
-      commitDelete: makeCommitDelete(store, name, events),
+      commitDelete: makeCommitDelete(store, name, events, softDeleteColumn),
       commitUpdate: makeCommitUpdate(store, name, events),
     };
     const bulk = makeCommitBulkInsert(store, name, events);
@@ -441,8 +456,19 @@ export const getCollection = <TName extends TableName>(
   const live = liveStore.events as Record<string, any>;
   const isReadOnly = Boolean((liveStore.readOnly as Record<string, boolean> | undefined)?.[name]);
 
+  // Resolve the soft-delete column from the most specific source first,
+  // falling back through the schema walker and finally `"deletedAt"`.
+  // Mirrors `createLiveStoreDb`'s precedence: explicit per-model map
+  // (`softDeleteColumns[model]`) → schema-detection → `"deletedAt"`.
+  const softDeleteColumn =
+    (liveStore.softDeleteColumns as Record<string, string> | undefined)?.[name] ??
+    softDeleteColumnFromSchema(tableSchema) ??
+    "deletedAt";
+
   // Auto-derive commit handlers unless the caller overrode them.
-  const auto = isReadOnly ? {} : buildCommitCallbacks(store, name, live);
+  const auto = isReadOnly
+    ? {}
+    : buildCommitCallbacks(store, name, live, softDeleteColumn);
 
   const insert = commitInsert ?? auto.commitInsert;
   const bulkInsert = commitBulkInsert ?? auto.commitBulkInsert;
@@ -464,6 +490,7 @@ export const getCollection = <TName extends TableName>(
         rpcClient: rpc.client,
         rpcConfig: rpc.config,
         onRpcError: rpc.onError,
+        softDeleteColumn,
       })
     : null;
 

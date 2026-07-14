@@ -78,6 +78,16 @@ export interface CreateMutationsConfig {
    * block the optimistic local-first path.
    */
   onRpcError?: (err: unknown, ctx: RpcErrorContext) => void;
+  /**
+   * Column name written into the `commitDelete` payload alongside `id`.
+   * The delete event schema mirrors `createLiveStoreDb`'s soft-delete
+   * column at `{ id, [softDeleteColumn]: Date }`. Defaults to
+   * `"deletedAt"` for back-compat with the hardcoded schema.
+   *
+   * Must match the column name `createLiveStoreDb` emitted for this
+   * model — otherwise the materialiser will reject the event.
+   */
+  softDeleteColumn?: string;
 }
 
 /** Which mutation slot triggered the RPC call. */
@@ -363,9 +373,10 @@ export function createMutations(config: CreateMutationsConfig): MutationCallback
 
     commitDelete: (row) => {
       const id = (row as { id: string }).id;
+      const col = config.softDeleteColumn ?? "deletedAt";
       tryCommit(store, findEvent(events, deleteEventKey), {
         id,
-        deletedAt: new Date(),
+        [col]: new Date(),
       });
       for (const e of partitioned.delete) {
         const map = specMap(e);
