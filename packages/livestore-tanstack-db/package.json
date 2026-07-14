@@ -23,7 +23,8 @@
   "dependencies": {
     "@standard-schema/spec": "^1.1.0",
     "@tanstack/devtools-event-client": "^0.5.0",
-    "@tanstack/react-db": "^0.1.0"
+    "@tanstack/react-db": "^0.1.0",
+    "livestore-prisma": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.0.0",
