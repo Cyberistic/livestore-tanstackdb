@@ -22,6 +22,11 @@ export interface TableDescriptor {
   readonly includedInSync: boolean;
 }
 
+/** Map of model name → primary-key column (or null for composite keys). */
 export type PrimaryKeyColumns = Readonly<Record<string, string | null>>;
+
+/** Map of model name → soft-delete column. Models without soft-delete are absent. */
 export type SoftDeleteColumns = Readonly<Partial<Record<string, string>>>;
+
+/** Map of model name → table descriptor. */
 export type Tables = Readonly<Record<string, TableDescriptor>>;
