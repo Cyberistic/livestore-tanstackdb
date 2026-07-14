@@ -40,7 +40,7 @@
     "todomvc-app-css": "2.4.3"
   },
   "devDependencies": {
-    "@cloudflare/vite-plugin": "1.13.12",
+    "@cloudflare/vite-plugin": "1.40.0",
     "@cloudflare/workers-types": "4.20251118.0",
     "@livestore/devtools-vite": "0.0.0-snapshot-31d1eb100c8a16a303c32fa181565de9e8d6fe3f",
     "@parcel/watcher": "^2.5.6",
@@ -57,8 +57,8 @@
     "prisma-effect-schema-generator": "0.1.11",
     "tsx": "^4.23.0",
     "typescript": "6.0.3",
-    "vite": "7.3.1",
-    "wrangler": "4.42.2"
+    "vite": "7.3.5",
+    "wrangler": "4.59.1"
   },
   "engines": {
     "node": ">=24.0.0"
