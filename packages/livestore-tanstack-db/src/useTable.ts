@@ -64,16 +64,13 @@ export interface UseTableLiveStore {
 
 const useLiveStore = (): UseTableLiveStore | null => {
   const config = useLiveStoreConfig();
-  if (!config) return null;
-  // The consumer's `createLiveStoreDb` output is stored on the
-  // LiveStoreProvider's `schema` prop. The package's `useTable` reads
-  // tables/events/store from the same place. The optional `oRPC`
-  // client sits alongside `schema` in the context so per-table hooks
-  // can auto-derive their RPC bindings (Tier 0.6).
-  return {
-    ...(config.schema as unknown as UseTableLiveStore),
-    oRPC: config.oRPC,
-  };
+  return useMemo(() => {
+    if (!config) return null;
+    return {
+      ...(config.schema as unknown as UseTableLiveStore),
+      oRPC: config.oRPC,
+    };
+  }, [config?.schema, config?.oRPC]);
 };
 
 // ─────────────────────────────────────────────────────────────────────
