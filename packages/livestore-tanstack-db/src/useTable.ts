@@ -99,6 +99,27 @@ const clientDocSetEventFor = (name: TableName, events: Record<string, any>) => {
 };
 
 /**
+ * Build the `commitInsert` handler for a client-document table. The
+ * client-document `set` event takes the document value as its first
+ * argument (TanStack DB's `mutation.modified` is that document value),
+ * not a synced-table `Created`-style payload.
+ *
+ * Plan 002 — previously this branch returned `makeCommitInsert(...)`,
+ * which routes through `syncedEventFor(name, events, "Created")` and
+ * throws because client documents emit `${name}Set`, not `${name}Created`.
+ */
+const makeCommitClientDocInsert = (
+  store: Store<any>,
+  name: TableName,
+  events: Record<string, any>,
+) => {
+  const setEvent = clientDocSetEventFor(name, events);
+  return (row: LiveStoreRow) => {
+    store.commit(setEvent(row));
+  };
+};
+
+/**
  * Walk the schema's property signatures and find a soft-delete column.
  * Heuristic: any field matching /(deleted|archived|removed)/ of
  * `NullOr(...)` type — covers `deletedAt`, `archivedAt`, `isDeleted`, etc.
@@ -238,7 +259,8 @@ const makeCommitUpdate = (store: Store<any>, name: TableName, events: Record<str
   };
 };
 
-const buildCommitCallbacks = (
+// Exported for testing only — see useTable.commitCallbacks.test.ts.
+export const buildCommitCallbacks = (
   store: Store<any>,
   name: TableName,
   events: Record<string, any>,
@@ -266,7 +288,7 @@ const buildCommitCallbacks = (
   }
   // Client document — has a `set` event
   return {
-    commitInsert: makeCommitInsert(store, name, events),
+    commitInsert: makeCommitClientDocInsert(store, name, events),
     commitUpdate: (input: { id: string; changes: Record<string, unknown> }) => {
       store.commit(clientDocSetEventFor(name, events)({ id: input.id, value: input.changes }));
     },
