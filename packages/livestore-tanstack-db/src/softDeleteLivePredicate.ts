@@ -1,12 +1,22 @@
-import { Schema } from "@livestore/livestore";
+import type { Schema } from "@livestore/livestore";
 
 /**
- * Tier 1.2 — auto-coerce a soft-delete predicate from a Prisma/Effect
+ * Tier 1.2 — auto-coerce a soft-delete predicate from a LiveStore
  * model schema. If the schema has a `deletedAt: Schema.NullOr(
- * Schema.Date)` field, returns `(row) => row.deletedAt == null`. If
- * the field is absent, returns `() => true` (every row is live).
+ * Schema.Date)` field (or whatever `options.column` names), returns
+ * `(row) => row[column] == null`. If the field is absent, returns
+ * `() => true` (every row is live).
  *
  * Override the field name via {@link column}.
+ *
+ * Note: this is a *factory* — it inspects the schema at call time.
+ * `livestore-prisma` exports a different shape, a single-row predicate
+ * that checks `deletedAt`, `archivedAt`, and `isDeleted`. The two
+ * operate on different inputs (schema vs row) and different column
+ * semantics (single explicit column vs auto-detected set), so we
+ * cannot delegate to the prisma version — the factory walker stays
+ * local. The `livestore-prisma` predicate is still re-exported from
+ * the package index for consumers that have a row in hand.
  */
 export const softDeleteLivePredicate = <TRow extends Record<string, unknown>>(
   schema: Schema.Top,

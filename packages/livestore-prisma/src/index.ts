@@ -18,6 +18,9 @@ export type {
   DefaultEventConfig,
   ClientDocumentInput,
 } from "./createLiveStoreDb.ts";
+export { getKeyFromSchema } from "./getKeyFromSchema.ts";
+export { softDeleteLivePredicate } from "./softDeleteLivePredicate.ts";
+export { toStandardSchemaV1, toLiveStoreSchema } from "./standardSchema.ts";
 export type {
   ColumnDescriptor,
   TableDescriptor,
