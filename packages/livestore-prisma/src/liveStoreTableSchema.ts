@@ -33,17 +33,21 @@ const COLUMN_TYPE_TO_SCHEMA = {
   number: () => Schema.Number,
   boolean: () => Schema.Boolean,
   date: () =>
-    // LiveStore stores dates as ISO strings in SQLite. The value can be
-    // a string when it comes from SQLite defaults (e.g. CURRENT_TIMESTAMP),
-    // server responses, or old persisted rows, or a Date when created
-    // in memory. Accept both on the type side and decode strings to Date;
-    // encode back to ISO string for persistence.
-    Schema.Union([
-      // Date already on the decoded side; no transform needed.
-      Schema.instanceOf(Date),
-      // String → Date via the DateFromString transformation codec.
-      Schema.DateFromString,
-    ]),
+    // LiveStore stores dates in SQLite as ISO strings. The value can
+    // be a string (e.g. from `CURRENT_TIMESTAMP` defaults, server
+    // responses, or old persisted rows) or a Date (in memory). Use
+    // `Schema.DateFromString` which decodes both:
+    //   * string → Date (transforms on decode)
+    //   * Date   → string (transforms on encode to ISO 8601)
+    //
+    // Note: a plain `Schema.Union([Schema.instanceOf(Date),
+    // Schema.DateFromString])` would also accept both on decode, but
+    // its encode side would emit a `Date` object (via the
+    // `instanceOf(Date)` branch) instead of an ISO string, which
+    // LiveStore then JSON-encodes — wrapping the date in quotes
+    // ("...2026-...Z") and breaking round-trips. `DateFromString`
+    // alone is the correct codec.
+    Schema.DateFromString,
   bytes: () => Schema.Uint8Array,
   json: () => Schema.Unknown,
   unknown: () => Schema.Unknown,
