@@ -13,9 +13,9 @@
     "dev:start-orpc": "cd examples/tanstack-start-orpc && bun run dev",
     "deploy:spa": "cd examples/spa && bun alchemy deploy",
     "deploy:start-orpc": "cd examples/tanstack-start-orpc && bun alchemy deploy",
-    "gen": "bun run gen:spa && bun run gen:start-orpc && bun run build",
-    "gen:spa": "cd examples/spa && bunx prisma generate",
-    "gen:start-orpc": "cd examples/tanstack-start-orpc && bunx prisma generate"
+    "gen": "bunx prisma generate --schema=./examples/spa/prisma/schema.prisma && bunx prisma generate --schema=./examples/tanstack-start-orpc/prisma/schema.prisma && bun run build",
+    "gen:spa": "bunx prisma generate --schema=./examples/spa/prisma/schema.prisma",
+    "gen:start-orpc": "bunx prisma generate --schema=./examples/tanstack-start-orpc/prisma/schema.prisma"
   },
   "overrides": {
     "effect": "4.0.0-beta.98"

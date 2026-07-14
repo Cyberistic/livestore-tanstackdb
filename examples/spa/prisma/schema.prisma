@@ -43,6 +43,11 @@ generator effect_client {
   // snapshot that bumped to `effect: ^4.0.0-beta`.
   effectVersion       = "v4"
   standardSchemaV1    = "true"
+  // In v4 `"Date"` maps to `Schema.DateFromString` (decodes ISO strings
+  // → Date), `"DateFromSelf"` maps to the strict `Schema.Date` (only
+  // accepts Date instances). LiveStore stores dates in SQLite as ISO
+  // strings, so we want the lenient codec.
+  dateAs              = "Date"
 }
 
 model Todo {
