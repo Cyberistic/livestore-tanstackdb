@@ -50,8 +50,8 @@
     "prisma": "7.8.0",
     "prisma-effect-schema-generator": "0.1.11",
     "typescript": "6.0.3",
-    "vite": "7.3.1",
-    "wrangler": "4.42.2"
+    "vite": "7.3.5",
+    "wrangler": "4.59.1"
   },
   "engines": {
     "node": ">=20.0.0"
