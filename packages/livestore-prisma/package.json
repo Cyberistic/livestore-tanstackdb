@@ -21,22 +21,17 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test"
   },
-  "dependencies": {
-    "@tanstack/react-db": "^0.1.0"
-  },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.0.0",
     "@prisma/generator-helper": "^7.0.0",
     "@types/node": "^26.1.1",
-    "@types/react": "^19.0.0",
     "effect": "^4.0.0-beta",
     "typescript": "^5.4.0"
   },
   "peerDependencies": {
     "@livestore/livestore": "npm:@livestore/livestore@snapshot",
     "@tanstack/db": "^0.6.0",
-    "effect": "^3.0.0",
-    "react": "^19.0.0"
+    "effect": "^3.0.0"
   },
   "peerDependenciesMeta": {
     "@livestore/livestore": {
@@ -46,9 +41,6 @@
       "optional": false
     },
     "effect": {
-      "optional": false
-    },
-    "react": {
       "optional": false
     }
   }

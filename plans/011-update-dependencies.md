@@ -6,7 +6,7 @@
 > report — do not improvise. When done, update the status row for this plan
 > in `plans/README.md`.
 >
-> **Drift check (run first)**: `git diff --stat f2cd0dbd..HEAD -- bun.lock package.json examples/spa/package.json examples/tanstack-start-orpc/package.json`
+> **Drift check (run first)**: `git diff --stat 6bb90c87..HEAD -- bun.lock package.json examples/spa/package.json examples/tanstack-start-orpc/package.json`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -18,7 +18,7 @@
 - **Risk**: HIGH
 - **Depends on**: none
 - **Category**: security
-- **Planned at**: commit `f2cd0dbd`, 2026-07-14
+- **Planned at**: commit `6bb90c87`, 2026-07-14
 - **Issue**: omit
 
 ## Why this matters
