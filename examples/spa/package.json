@@ -8,6 +8,7 @@
     "deploy": "bun run build && alchemy deploy",
     "dev": "alchemy dev",
     "preview": "vite preview",
+    "postinstall": "bun run scripts/patch-schedule.mjs",
     "test": "playwright test",
     "typecheck": "tsc --noEmit",
     "db:generate": "prisma generate",

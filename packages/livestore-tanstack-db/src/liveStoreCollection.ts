@@ -28,9 +28,10 @@ export type CoerceRow<TIn extends LiveStoreRow, TOut extends LiveStoreRow> = (ro
  * synchronously and `store.subscribe` fires immediately. So the only
  * utility is direct access to the underlying `Store`.
  */
-// oxlint-disable-next-line no-unused-vars
-export interface LiveStoreCollectionUtils<T extends LiveStoreRow = LiveStoreRow>
-  extends UtilsRecord {
+export interface LiveStoreCollectionUtils<
+  // oxlint-disable-next-line no-unused-vars
+  T extends LiveStoreRow = LiveStoreRow,
+> extends UtilsRecord {
   /** Direct access to the underlying LiveStore `Store` instance. */
   getStore: () => Store<any>;
 }

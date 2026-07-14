@@ -1,7 +1,6 @@
-// MUST be the first import — patches Schedule.bothLeft before any
-// LiveStore module (transitively via @livestore/utils/dist/effect/Schedule)
-// evaluates it at module load.
-import "livestore-tanstack-db/v4ScheduleShim";
+// The Effect v4 snapshot is patched in-place at install time by
+// `scripts/patch-schedule.mjs` (see `postinstall` in package.json).
+// No runtime shim needed here.
 
 import type { CfTypes } from "@livestore/sync-cf/cf-worker";
 import * as SyncBackend from "@livestore/sync-cf/cf-worker";

@@ -14,10 +14,6 @@
     "./devtools": {
       "types": "./dist/devtools/index.d.ts",
       "import": "./dist/devtools/index.js"
-    },
-    "./v4ScheduleShim": {
-      "types": "./dist/v4ScheduleShim.d.ts",
-      "import": "./dist/v4ScheduleShim.js"
     }
   },
   "scripts": {
