@@ -64,7 +64,12 @@ export const buildLiveStoreTableSchema = (
 ): Parameters<typeof toLiveStoreSchema>[0] => {
   const fieldPairs = table.columns.flatMap((col): Array<[string, Schema.Top]> => {
     const builder = COLUMN_TYPE_TO_SCHEMA[col.type];
-    if (!builder) return [];
+    if (!builder) {
+      throw new Error(
+        `liveStoreTableSchema: unsupported column type '${col.type}' for column '${col.name}' in table '${table.name}'. ` +
+          `Supported types are: ${Object.keys(COLUMN_TYPE_TO_SCHEMA).join(", ")}.`,
+      );
+    }
     const base = builder();
     // Non-nullable columns get the base codec verbatim; nullable columns
     // are wrapped in `NullOr` so the LiveStore row decoder accepts

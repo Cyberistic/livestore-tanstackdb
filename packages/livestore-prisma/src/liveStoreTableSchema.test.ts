@@ -1,11 +1,14 @@
 // @ts-nocheck
+
 import { Schema } from "@livestore/livestore";
 import { describe, expect, test } from "bun:test";
 
 import { buildLiveStoreTableSchema } from "./liveStoreTableSchema.ts";
 import type { TableDescriptor } from "./types.ts";
 
-const makeColumn = (overrides: Partial<TableDescriptor["columns"][number]>): TableDescriptor["columns"][number] => ({
+const makeColumn = (
+  overrides: Partial<TableDescriptor["columns"][number]>,
+): TableDescriptor["columns"][number] => ({
   name: "x",
   type: "string",
   required: true,
@@ -48,12 +51,7 @@ describe("buildLiveStoreTableSchema", () => {
     ]);
     const schema = buildLiveStoreTableSchema("Test", table);
     const fields = (schema as any).fields;
-    // DateFromString is the only codec we use for dates; the schema field
-    // should be a NullOr(DateFromString) for an optional date column.
     expect(fields.createdAt).toBeDefined();
-    // We don't reach into the inner AST here — instead, verify the codec
-    // round-trips a string → Date → string pair (the whole point of using
-    // DateFromString over Union(instanceOf(Date), DateFromString)).
     const decode = Schema.decodeUnknownSync(fields.createdAt);
     const decoded = decode("2026-01-02T03:04:05.000Z");
     expect(decoded).toBeInstanceOf(Date);
@@ -61,10 +59,6 @@ describe("buildLiveStoreTableSchema", () => {
   });
 
   test("marks optional columns with Schema.NullOr", () => {
-    // NOTE: This locks in the current behaviour — optional columns are
-    // wrapped in `Schema.NullOr(...)` rather than marked `isOptional`
-    // on the AST. Changing this would break LiveStore's row decoder for
-    // nullable DateTime? fields, so the test exists to flag the change.
     const table = makeTable([
       makeColumn({ name: "id", type: "string" }),
       makeColumn({ name: "description", type: "string", required: false }),
@@ -72,21 +66,46 @@ describe("buildLiveStoreTableSchema", () => {
     const schema = buildLiveStoreTableSchema("Test", table);
     const field = (schema as any).fields.description;
     expect(field).toBeDefined();
-    // Runtime check: NullOr wraps the base in a Union with a null
-    // literal — decode `null` and expect success.
     const decode = Schema.decodeUnknownSync(field);
     expect(() => decode(null)).not.toThrow();
     expect(decode(null)).toBe(null);
   });
 
   test("keeps required columns non-nullable", () => {
-    const table = makeTable([
-      makeColumn({ name: "id", type: "string", required: true }),
-    ]);
+    const table = makeTable([makeColumn({ name: "id", type: "string", required: true })]);
     const schema = buildLiveStoreTableSchema("Test", table);
     const field = (schema as any).fields.id;
     const decode = Schema.decodeUnknownSync(field);
     expect(() => decode("abc")).not.toThrow();
     expect(() => decode(null)).toThrow();
+  });
+
+  test("throws on unknown column type", () => {
+    expect(() =>
+      buildLiveStoreTableSchema("Todo", {
+        name: "todos",
+        primaryKey: "id",
+        softDelete: null,
+        includedInSync: true,
+        columns: [
+          {
+            name: "id",
+            type: "string",
+            required: true,
+            list: false,
+            unique: false,
+            isEnum: false,
+          },
+          {
+            name: "count",
+            type: "bigint" as any,
+            required: true,
+            list: false,
+            unique: false,
+            isEnum: false,
+          },
+        ],
+      }),
+    ).toThrow(/unsupported column type 'bigint'/);
   });
 });
