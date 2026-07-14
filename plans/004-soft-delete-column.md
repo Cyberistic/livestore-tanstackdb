@@ -6,7 +6,7 @@
 > report — do not improvise. When done, update the status row for this plan
 > in `plans/README.md`.
 >
-> **Drift check (run first)**: `git diff --stat f2cd0dbd..HEAD -- packages/livestore-prisma/src/createLiveStoreDb.ts packages/livestore-tanstack-db/src/useTable.ts packages/livestore-tanstack-db/src/mutations.ts`
+> **Drift check (run first)**: `git diff --stat 51c881c4..HEAD -- packages/livestore-prisma/src/createLiveStoreDb.ts packages/livestore-tanstack-db/src/useTable.ts packages/livestore-tanstack-db/src/mutations.ts`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -18,7 +18,7 @@
 - **Risk**: MED
 - **Depends on**: 001-unit-tests
 - **Category**: bug
-- **Planned at**: commit `f2cd0dbd`, 2026-07-14
+- **Planned at**: commit `51c881c4`, 2026-07-14
 - **Issue**: omit
 
 ## Why this matters
