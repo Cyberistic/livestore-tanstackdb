@@ -9,17 +9,17 @@ Planned against commit `f2cd0dbd`. The working tree had uncommitted changes at p
 | Plan | Title                                                                    | Priority | Effort | Depends on | Status |
 | ---- | ------------------------------------------------------------------------ | -------- | ------ | ---------- | ------ |
 | 001 | Add unit tests to integration packages | P1 | M | — | DONE |
-| 002 | Fix client-document insert event in `useTable` | P1 | S | 001 | TODO |
-| 004 | Fix delete handlers to use the configured soft-delete column | P1 | S | 001 | TODO |
-| 005 | Memoize `useLiveStore` return value | P2 | S | 001 | TODO |
+| 002 | Fix client-document insert event in `useTable` | P1 | S | 001 | DONE |
+| 004 | Fix delete handlers to use the configured soft-delete column | P1 | S | 001 | DONE |
+| 005 | Memoize `useLiveStore` return value | P2 | S | 001 | DONE |
 | 006 | Deduplicate shared schema helpers and types | P2 | M | 001 | DONE |
-| 007 | Remove unused React dependencies from `livestore-prisma` | P2 | S | — | TODO |
-| 008 | Move `@prisma/generator-helper` to `livestore-prisma` dependencies | P1 | S | — | TODO |
+| 007 | Remove unused React dependencies from `livestore-prisma` | P2 | S | — | DONE |
+| 008 | Move `@prisma/generator-helper` to `livestore-prisma` dependencies | P1 | S | — | DONE |
 | 009 | Replace `require()` with dynamic `import()` in `LiveStoreDevtoolsBridge` | P2 | S | 001 | DONE |
-| 011 | Update transitive vulnerable dependencies | P2 | M | — | TODO |
-| 012 | Clean stale build artifacts in `livestore-prisma/dist` | P2 | S | — | TODO |
-| 013 | Align TypeScript versions across the workspace | P3 | S | — | TODO |
-| 014 | Tighten the `effect` peer dependency range | P3 | S | — | TODO |
+| 011 | Update transitive vulnerable dependencies | P2 | M | — | DONE |
+| 012 | Clean stale build artifacts in `livestore-prisma/dist` | P2 | S | — | DONE |
+| 013 | Align TypeScript versions across the workspace | P3 | S | — | DONE |
+| 014 | Tighten the `effect` peer dependency range | P3 | S | — | DONE |
 | 015 | Validate or fallback for unknown Prisma column types | P2 | S | 001 | DONE |
 
 Status values: TODO | IN PROGRESS | DONE | BLOCKED (with one-line reason) | REJECTED (with one-line rationale)
