@@ -6,7 +6,7 @@
 > report — do not improvise. When done, update the status row for this plan
 > in `plans/README.md`.
 >
-> **Drift check (run first)**: `git diff --stat 3263a9de..HEAD -- packages/livestore-prisma/src/types.ts packages/livestore-prisma/src/getKeyFromSchema.ts packages/livestore-prisma/src/standardSchema.ts packages/livestore-prisma/src/softDeleteLivePredicate.ts packages/livestore-tanstack-db/src/types.ts packages/livestore-tanstack-db/src/getKeyFromSchema.ts packages/livestore-tanstack-db/src/standardSchema.ts packages/livestore-tanstack-db/src/softDeleteLivePredicate.ts`
+> **Drift check (run first)**: `git diff --stat f2cd0dbd..HEAD -- packages/livestore-prisma/src/types.ts packages/livestore-prisma/src/getKeyFromSchema.ts packages/livestore-prisma/src/standardSchema.ts packages/livestore-prisma/src/softDeleteLivePredicate.ts packages/livestore-tanstack-db/src/types.ts packages/livestore-tanstack-db/src/getKeyFromSchema.ts packages/livestore-tanstack-db/src/standardSchema.ts packages/livestore-tanstack-db/src/softDeleteLivePredicate.ts`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -18,7 +18,7 @@
 - **Risk**: MED
 - **Depends on**: 001-unit-tests
 - **Category**: tech-debt
-- **Planned at**: commit `3263a9de`, 2026-07-14
+- **Planned at**: commit `f2cd0dbd`, 2026-07-14
 - **Issue**: omit
 
 ## Why this matters

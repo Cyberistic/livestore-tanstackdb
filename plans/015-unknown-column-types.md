@@ -6,7 +6,7 @@
 > report — do not improvise. When done, update the status row for this plan
 > in `plans/README.md`.
 >
-> **Drift check (run first)**: `git diff --stat 3263a9de..HEAD -- packages/livestore-prisma/src/liveStoreTableSchema.ts`
+> **Drift check (run first)**: `git diff --stat f2cd0dbd..HEAD -- packages/livestore-prisma/src/liveStoreTableSchema.ts`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -18,7 +18,7 @@
 - **Risk**: MED
 - **Depends on**: 001-unit-tests
 - **Category**: bug
-- **Planned at**: commit `3263a9de`, 2026-07-14
+- **Planned at**: commit `f2cd0dbd`, 2026-07-14
 - **Issue**: omit
 
 ## Why this matters
@@ -28,24 +28,32 @@
 ## Current state
 
 ```ts
-// packages/livestore-prisma/src/liveStoreTableSchema.ts:31-49
+// packages/livestore-prisma/src/liveStoreTableSchema.ts:31-54
 const COLUMN_TYPE_TO_SCHEMA = {
   string: () => Schema.String,
   number: () => Schema.Number,
   boolean: () => Schema.Boolean,
-  date: () => /* ... */,
+  date: () => Schema.DateFromString,
   bytes: () => Schema.Uint8Array,
   json: () => Schema.Unknown,
   unknown: () => Schema.Unknown,
 } as const;
 
-// packages/livestore-prisma/src/liveStoreTableSchema.ts:62-65
-for (const col of table.columns) {
-  const builder = COLUMN_TYPE_TO_SCHEMA[col.type];
-  if (!builder) continue;
-  const base = builder();
-  fields[col.name] = col.required ? base : Schema.optional(base);
-}
+// packages/livestore-prisma/src/liveStoreTableSchema.ts:65-73
+export const buildLiveStoreTableSchema = (
+  _modelName: string,
+  table: TableDescriptor,
+): Parameters<typeof toLiveStoreSchema>[0] => {
+  const fieldPairs = table.columns.flatMap((col): Array<[string, Schema.Top]> => {
+    const builder = COLUMN_TYPE_TO_SCHEMA[col.type];
+    if (!builder) return [];
+    const base = builder();
+    return [[col.name, (col.required ? base : Schema.NullOr(base)) as Schema.Top]];
+  });
+  const fields = Object.fromEntries(fieldPairs) as Parameters<typeof Schema.Struct>[0];
+
+  return Schema.Struct(fields) as unknown as Parameters<typeof toLiveStoreSchema>[0];
+};
 ```
 
 The `ColumnDescriptor` type currently allows `"string" | "number" | "boolean" | "date" | "json" | "bytes" | "unknown"`, but the upstream generator may emit a value not in this set or the type may be widened in the future.
@@ -86,10 +94,10 @@ Alternatively, fall back to `Schema.Unknown` and log a warning. Choose the fail-
 
 ### Step 2: Implement the validation
 
-Edit `packages/livestore-prisma/src/liveStoreTableSchema.ts`:
+Edit `packages/livestore-prisma/src/liveStoreTableSchema.ts`. Inside the `flatMap` callback, replace the silent `return []` with an explicit throw:
 
 ```ts
-for (const col of table.columns) {
+const fieldPairs = table.columns.flatMap((col): Array<[string, Schema.Top]> => {
   const builder = COLUMN_TYPE_TO_SCHEMA[col.type];
   if (!builder) {
     throw new Error(
@@ -98,15 +106,15 @@ for (const col of table.columns) {
     );
   }
   const base = builder();
-  fields[col.name] = col.required ? base : Schema.optional(base);
-}
+  return [[col.name, (col.required ? base : Schema.NullOr(base)) as Schema.Top]];
+});
 ```
 
 If you choose the `Schema.Unknown` fallback instead, replace the throw with:
 
 ```ts
 const base = Schema.Unknown;
-fields[col.name] = col.required ? base : Schema.optional(base);
+return [[col.name, (col.required ? base : Schema.NullOr(base)) as Schema.Top]];
 // optionally log a warning
 ```
 

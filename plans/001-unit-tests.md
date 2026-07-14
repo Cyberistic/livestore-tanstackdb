@@ -7,7 +7,7 @@
 > in `plans/README.md` — unless a reviewer dispatched you and told you they
 > maintain the index.
 >
-> **Drift check (run first)**: `git diff --stat 3263a9de..HEAD -- packages/livestore-prisma/src packages/livestore-tanstack-db/src packages/livestore-prisma/package.json packages/livestore-tanstack-db/package.json`
+> **Drift check (run first)**: `git diff --stat f2cd0dbd..HEAD -- packages/livestore-prisma/src packages/livestore-tanstack-db/src packages/livestore-prisma/package.json packages/livestore-tanstack-db/package.json`
 > If any in-scope file changed since this plan was written, compare the
 > "Current state" excerpts against the live code before proceeding; on a
 > mismatch, treat it as a STOP condition.
@@ -19,7 +19,7 @@
 - **Risk**: LOW
 - **Depends on**: none
 - **Category**: tests
-- **Planned at**: commit `3263a9de`, 2026-07-14
+- **Planned at**: commit `f2cd0dbd`, 2026-07-14
 - **Issue**: omit
 
 ## Why this matters
