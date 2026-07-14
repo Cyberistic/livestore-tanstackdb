@@ -38,12 +38,16 @@ generator effect_client {
   tables              = "true"
   exportModelNames    = "true"
   exportModelNameType = "true"
-  // Wrap every schema in `Schema.standardSchemaV1(...)` so it satisfies
-  // Standard Schema v1 (TanStack DB accepts it directly via
-  // `CollectionConfig.schema`). Fixed in 0.1.8 — the destructive
-  // `as unknown as Schema.Schema<unknown, unknown, never>` cast that
-  // erased the row type was removed upstream (issue #2).
+  // Effect v4 emits `Schema.toStandardSchemaV1(...)` instead of the
+  // removed `Schema.standardSchemaV1(...)`. Pairs with the LiveStore
+  // snapshot that bumped to `effect: ^4.0.0-beta`.
+  effectVersion       = "v4"
   standardSchemaV1    = "true"
+  // In v4 `"Date"` maps to `Schema.DateFromString` (decodes ISO strings
+  // → Date), `"DateFromSelf"` maps to the strict `Schema.Date` (only
+  // accepts Date instances). LiveStore stores dates in SQLite as ISO
+  // strings, so we want the lenient codec.
+  dateAs              = "Date"
 }
 
 model Todo {

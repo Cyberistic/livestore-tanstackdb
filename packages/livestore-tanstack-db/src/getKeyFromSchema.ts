@@ -15,7 +15,7 @@ import { Schema } from "@livestore/livestore";
  * not invoking this on schemas without an id.
  */
 export const getKeyFromSchema = <TRow extends Record<string, unknown>>(
-  schema: Schema.Schema.Any,
+  schema: Schema.Top,
 ): ((row: TRow) => string) => {
   const props = propertySignaturesOf(schema);
 
@@ -49,7 +49,7 @@ type PropertySignature = {
   readonly annotations: Record<string, unknown> & Record<symbol, unknown>;
 };
 
-const propertySignaturesOf = (schema: Schema.Schema.Any): PropertySignature[] => {
+const propertySignaturesOf = (schema: Schema.Top): PropertySignature[] => {
   const direct = (schema.ast as { propertySignatures?: ReadonlyArray<PropertySignature> })
     .propertySignatures;
   return Array.isArray(direct) ? [...direct] : [];

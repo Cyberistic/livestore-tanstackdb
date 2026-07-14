@@ -3,20 +3,20 @@
 
 import { Schema } from "effect"
 
-export const EventSchema = Schema.standardSchemaV1(Schema.Struct({
+export const EventSchema = Schema.toStandardSchemaV1(Schema.Struct({
   id: Schema.Number,
   storeId: Schema.String,
   name: Schema.String,
   args: Schema.String,
-  createdAt: Schema.Date,
+  createdAt: Schema.DateFromString,
 }))
 
-export const TodoSchema = Schema.standardSchemaV1(Schema.Struct({
+export const TodoSchema = Schema.toStandardSchemaV1(Schema.Struct({
   id: Schema.String,
   text: Schema.String,
   completed: Schema.Boolean,
-  createdAt: Schema.Date,
-  deletedAt: Schema.NullOr(Schema.Date),
+  createdAt: Schema.DateFromString,
+  deletedAt: Schema.NullOr(Schema.DateFromString),
 }))
 
 export const PRIMARY_KEY_COLUMNS = {

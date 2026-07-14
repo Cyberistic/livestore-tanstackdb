@@ -15,12 +15,19 @@ generator effect_client {
   tables              = "true"
   exportModelNames    = "true"
   exportModelNameType = "true"
+  // Effect v4 emits `Schema.toStandardSchemaV1(...)` instead of the
+  // removed `Schema.standardSchemaV1(...)`. Pairs with the LiveStore
+  // snapshot that bumped to `effect: ^4.0.0-beta`.
+  effectVersion       = "v4"
   standardSchemaV1    = "true"
   dateAs              = "Date"
 }
 
 generator livestore {
-  provider          = "../../packages/livestore-prisma/prisma-livestore-generator.cjs"
+  // Resolved via the `bin` field on the `livestore-prisma` workspace
+  // package, which every example depends on via `file:../../packages/...`.
+  // Same shape as `effect_client` above — no relative path to break.
+  provider          = "prisma-livestore-generator"
   output            = "./generated/livestore"
   clientSchemasPath = "./generated/client-schemas/index.ts"
 }

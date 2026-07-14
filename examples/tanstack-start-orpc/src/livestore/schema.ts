@@ -1,3 +1,7 @@
+// The Effect v4 snapshot is patched in-place at install time by
+// `scripts/patch-schedule.mjs` (see `postinstall` in package.json).
+// No runtime shim needed here.
+
 import { Schema, SessionIdSymbol } from "@livestore/livestore";
 import { createLiveStoreDb } from "livestore-prisma";
 
@@ -9,11 +13,11 @@ import { liveStoreDbConfig } from "../../prisma/generated/livestore/index.ts";
  */
 const UiStateSchema = Schema.Struct({
   newTodoText: Schema.String,
-  filter: Schema.Union(
+  filter: Schema.Union([
     Schema.Literal("all"),
     Schema.Literal("active"),
     Schema.Literal("completed"),
-  ),
+  ]),
 });
 
 export const { tables, events, materializers, schema, readOnly } = createLiveStoreDb({

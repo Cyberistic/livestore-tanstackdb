@@ -1,5 +1,7 @@
 # LiveStore × TanStack DB + (bonus Prisma-Effect-Generator)
 
+> Note: Project migrated to Effect V4, Effect V3 commit: `682e964b`
+
 https://github.com/user-attachments/assets/83bebbe2-2a50-4f1b-9add-536811eb756b
 
 An end-to-end demo of the [LiveStore](https://livestore.dev) sync engine wired into [TanStack DB](https://tanstack.com/db) collections.
@@ -468,52 +470,71 @@ export default defineConfig({
 ### Regenerate after a schema change
 
 `bun run gen` from the workspace root runs the full regeneration
-chain — Prisma generators (upstream `effect_client` + in-repo
-`livestore`) for both apps, then rebuilds the integration packages
-so consumers see the latest types.
+chain — `prisma generate` for both apps (the `effect_client`
+generator that emits `Schema.*` + introspection maps, plus the
+in-repo `livestore` generator that emits tables/events/materializers),
+then rebuilds the integration packages so consumers see the latest
+types.
 
 ```bash
-bun run gen      # full chain: prisma generate + bun run build
-bun run gen:spa              # prisma generate only (spa)
-bun run gen:start-orpc       # prisma generate only (tanstack-start-orpc)
+bun run gen                    # full chain: prisma generate + bun run build
+bun run gen:spa                # prisma generate only (spa)
+bun run gen:start-orpc         # prisma generate only (tanstack-start-orpc)
 ```
+
+Both `gen:*` scripts run `prisma generate --schema=...` from the
+workspace root (Prisma 7's example-dir config loader is broken on
+macOS — see the `prisma.config.ts` files in each example). The
+`livestore` generator block in each schema resolves the bin via the
+`livestore-prisma` package's `bin` field (`prisma-livestore-generator`)
+— same shape as the upstream `prisma-effect-schema-generator`, so
+relative paths don't break under different invocation CWDs.
 
 After a schema change in either example, run `bun run gen` (or the
 narrower `gen:spa` / `gen:start-orpc`) before restarting the dev
 server. The integration packages' `dist/` is what the apps import, so
 the rebuild step is mandatory for type changes to flow through.
 
+#### Postinstall patches
+
+The LiveStore snapshot at `0.0.0-snapshot-31d1eb100c8a16a303c32fa181565de9e8d6fe3f`
+was built against an Effect v4 beta that was published with
+`Schedule.bothLeft` intact. The next Effect beta removes it
+([effect-smol PR #2551](https://github.com/Effect-TS/effect-smol/pull/2551))
+and the snapshot hasn't been republished yet — so on a clean
+`bun install` the dev server throws
+`TypeError: Schedule.bothLeft is not a function` at module load.
+
+`scripts/patch-schedule.mjs` in each example rewrites
+`node_modules/@livestore/utils/dist/effect/Schedule.js` in place,
+swapping `Schedule.bothLeft(b)` for `Schedule.max([self, b])`. It's
+wired as a `postinstall` hook in each example's `package.json`, runs
+on every `bun install`, and is idempotent (skips if the file already
+contains the patched marker). Delete both the postinstall hook and
+the script once the LiveStore snapshot is republished against the
+next Effect beta.
+
 ## Files of interest
 
-(ai slop)
-
-| Path                                        | What it does                                                 |
-| ------------------------------------------- | ------------------------------------------------------------ |
-| `prisma/schema.prisma`                      | Single source of truth for tables                            |
-| `generators/effect-schema.cjs`              | Prisma → Effect Schema generator                             |
-| `prisma/generated/client-schemas/index.ts`  | Generated Effect Schemas (gitignored)                        |
-| `prisma/migrations/0001_init/migration.sql` | Generated DDL for D1                                         |
-| `src/livestore/schema.ts`                   | LiveStore tables + events + materialisers                    |
-| `src/livestore/queries.ts`                  | Pre-built `uiState$` query                                   |
-| `src/livestore/store.ts`                    | `useAppStore()` hook                                         |
-| `src/db/liveStoreCollection.ts`             | TanStack DB collection options creator                       |
-| `src/db/todoCollection.ts`                  | The `todos` collection wired with LiveStore events           |
-| `src/db/todoSchema.ts`                      | Client-facing Effect `Schema` for the row type               |
-| `src/components/*.tsx`                      | React components using `useLiveQuery`                        |
-| `src/cf-worker/index.ts`                    | LiveStore sync DO with D1 write-through + SPA fallback       |
-| `alchemy.run.ts`                            | D1 + Durable Object + Worker                                 |
-| `.gitignore`                                | Excludes `node_modules`, `dist`, generated, `.alchemy`, etc. |
-
-## Alchemy v2 note
-
-(ai slop but it's true)
-
-This stack uses the stable `alchemy@0.93.x` (v1) API. The v2 beta
-(`alchemy@next`, `2.0.0-beta.x`) is Effect-based but its transitive
-`@effect/*@0.x` tree — pulled in by `@livestore/utils` — references
-effect@0.x runtime APIs (`TRef`, `STM`, `Effect.merge`, `Effect.tryMap`,
-…) that aren't in any published effect@4 beta on npm. PR #801 advanced
-it but the migration isn't viable yet. Stay on v1 stable.
+| Path                                                       | What it does                                                        |
+| ---------------------------------------------------------- | ------------------------------------------------------------------- |
+| `prisma/schema.prisma`                                     | Single source of truth for tables                                   |
+| `prisma/livestore.annotations.json`                        | Per-table flags (e.g. `serverOnly`) consumed by the `livestore` gen |
+| `prisma/generated/client-schemas/index.ts`                 | Generated Effect Schemas (gitignored)                               |
+| `prisma/generated/livestore/*.ts`                          | Generated LiveStore tables/events/materializers (gitignored)        |
+| `prisma/migrations/0001_init/migration.sql`                | Generated DDL for D1                                                |
+| `src/livestore/schema.ts`                                  | LiveStore tables + events + materialisers wrapper                   |
+| `src/livestore/queries.ts`                                 | Pre-built `uiState$` query                                          |
+| `src/livestore/store.ts`                                   | `useAppStore()` hook                                                |
+| `src/db/liveStoreCollection.ts`                            | TanStack DB collection options creator                              |
+| `src/db/todoCollection.ts`                                 | The `todos` collection wired with LiveStore events                  |
+| `src/db/todoSchema.ts`                                     | Client-facing Effect `Schema` for the row type                      |
+| `src/components/*.tsx`                                     | React components using `useLiveQuery`                               |
+| `src/cf-worker/index.ts`                                   | LiveStore sync DO with D1 write-through + SPA fallback              |
+| `alchemy.run.ts`                                           | D1 + Durable Object + Worker                                        |
+| `packages/livestore-prisma/src/generator.ts`               | The `livestore` Prisma generator source (built to `dist/`)          |
+| `packages/livestore-prisma/prisma-livestore-generator.cjs` | CJS shim that `import()`s the built ESM generator                   |
+| `.gitignore`                                               | Excludes `node_modules`, `dist`, generated, `.alchemy`, etc.        |
 
 ## Credits
 

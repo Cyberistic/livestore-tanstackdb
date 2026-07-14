@@ -1,13 +1,7 @@
 import { Events, makeSchema, Schema, SessionIdSymbol, State } from "@livestore/livestore";
 
 import { toStandardSchemaV1, toLiveStoreSchema } from "./standardSchema.ts";
-import { buildLiveStoreTableSchema } from "./liveStoreTableSchema.ts";
-import type {
-  ColumnDescriptor,
-  PrimaryKeyColumns,
-  SoftDeleteColumns,
-  Tables,
-} from "./types.ts";
+import type { ColumnDescriptor, PrimaryKeyColumns, SoftDeleteColumns, TableDescriptor, Tables } from "./types.ts";
 
 /**
  * The `prisma-effect-schema-generator` runtime contract.
@@ -31,16 +25,16 @@ export const DEFAULT_TABLES: Tables = {};
 
 type GeneratedSchemas = Record<string, unknown>;
 
-type RowType<S> = S extends Schema.Schema<infer T, any, any> ? T : never;
+type RowType<S> = S extends Schema.Codec<infer T, any, any, any> ? T : never;
 
 type SyncedTableFor<S> = State.SQLite.TableDef<
   any,
   { readonly isClientDocumentTable: false },
-  Schema.Schema<RowType<S>, any, never>
+  Schema.Codec<RowType<S>, any, never, never>
 >;
 
 export type ClientDocumentInput = {
-  schema: Schema.Schema.Any;
+  schema: Schema.Top;
   default?: {
     id?: string | typeof SessionIdSymbol;
     value: unknown;
@@ -61,7 +55,7 @@ export type DefaultEventConfig = {
   softDeleteColumn?: string | null;
 };
 
-export type ClientDocuments = Record<string, Schema.Schema.Any | ClientDocumentInput>;
+export type ClientDocuments = Record<string, Schema.Top | ClientDocumentInput>;
 
 export interface LiveStoreDbConfig<T extends GeneratedSchemas> {
   /**
@@ -90,7 +84,7 @@ export interface LiveStoreDbConfig<T extends GeneratedSchemas> {
   softDeleteColumns?: SoftDeleteColumns;
   tables?: Tables;
 
-  clientDocuments?: Record<string, Schema.Schema.Any | ClientDocumentInput>;
+  clientDocuments?: Record<string, Schema.Top | ClientDocumentInput>;
   events?: Partial<Record<keyof T & string, DefaultEventConfig>>;
   version?: string;
 
@@ -152,16 +146,92 @@ const defaultValuesFor = (
 const insertableSchemaFor = (
   columns: ReadonlyArray<ColumnDescriptor> | undefined,
   modelSchema: unknown,
-): Record<string, Schema.Schema.Any> => {
+): Record<string, Schema.Top> => {
   const fields = fieldsOf(modelSchema);
   if (!fields || !columns) return {};
   const insertable = columns.filter((c) => c.required && c.type !== "boolean");
-  const out: Record<string, Schema.Schema.Any> = {};
+  const out: Record<string, Schema.Top> = {};
   for (const c of insertable) {
     const sig = fields[c.name];
     if (sig) out[c.name] = sig;
   }
   return out;
+};
+
+/**
+ * Build explicit LiveStore SQLite column definitions from a `TableDescriptor`.
+ *
+ * Using explicit columns avoids a LiveStore schema-to-columns conversion quirk:
+ * `State.SQLite.table({ schema })` derives column types from the *decoded* type
+ * of each field. For `Schema.DateFromString` the decoded type is `Date`, so in
+ * Effect v4 the column becomes `json` and dates are stored as JSON strings
+ * (`"2026-07-14T08:30:36.938Z"`). That later fails row decoding because the
+ * row schema expects a plain ISO string.
+ *
+ * Explicit columns give us full control: `date` columns become
+ * `State.SQLite.datetime` (text + `DateFromString` codec), `boolean` becomes
+ * `State.SQLite.boolean`, etc.
+ */
+const buildColumns = (table: TableDescriptor): Record<string, any> => {
+  const columns: Record<string, any> = {};
+
+  for (const col of table.columns) {
+    const nullable = !col.required;
+    const isPrimaryKey = col.name === table.primaryKey;
+
+    const annotate = (s: Schema.Top): Schema.Top => {
+      let result = s;
+      if (isPrimaryKey) result = State.SQLite.withPrimaryKey(result);
+      if (col.unique) result = State.SQLite.withUnique(result);
+      return result;
+    };
+
+    const asCodec = (s: Schema.Top): Schema.Codec<any, any> => s as Schema.Codec<any, any>;
+
+    switch (col.type) {
+      case "string": {
+        columns[col.name] = State.SQLite.text({
+          schema: asCodec(annotate(Schema.String)),
+          nullable,
+          primaryKey: isPrimaryKey,
+        });
+        break;
+      }
+      case "number": {
+        columns[col.name] = State.SQLite.real({
+          schema: asCodec(annotate(Schema.Number)),
+          nullable,
+          primaryKey: isPrimaryKey,
+        });
+        break;
+      }
+      case "boolean": {
+        columns[col.name] = State.SQLite.boolean({ nullable, primaryKey: isPrimaryKey });
+        break;
+      }
+      case "date": {
+        columns[col.name] = State.SQLite.datetime({ nullable, primaryKey: isPrimaryKey });
+        break;
+      }
+      case "json":
+      case "unknown": {
+        columns[col.name] = State.SQLite.json({
+          schema: asCodec(Schema.Unknown),
+          nullable,
+          primaryKey: isPrimaryKey,
+        });
+        break;
+      }
+      case "bytes": {
+        columns[col.name] = State.SQLite.blob({ nullable, primaryKey: isPrimaryKey });
+        break;
+      }
+      default:
+        continue;
+    }
+  }
+
+  return columns;
 };
 
 const eventSuffixesFor = (fieldName: string): { on: string; off: string } => {
@@ -179,13 +249,12 @@ const capitalize = (s: string) => s[0]!.toUpperCase() + s.slice(1);
  * Read the `fields` map from a `Schema.Struct`/`Schema.TypeLiteral`
  * instance without an `as unknown` cast. The `Schema.Struct` /
  * `TypeLiteral` interfaces both declare `readonly fields: Readonly<Fields>`,
- * but `Schema.Schema.Any` is the broader `Schema<any, any, any>` type
+ * but `Schema.Top` is the broader `Schema<any, any, any>` type
  * which doesn't expose `fields`. This helper narrows the type with
  * a structural check before reading.
  */
-const fieldsOf = (schema: unknown): Readonly<Record<string, Schema.Schema.Any>> | undefined => {
-  const direct = (schema as { readonly fields?: Readonly<Record<string, Schema.Schema.Any>> })
-    .fields;
+const fieldsOf = (schema: unknown): Readonly<Record<string, Schema.Top>> | undefined => {
+  const direct = (schema as { readonly fields?: Readonly<Record<string, Schema.Top>> }).fields;
   if (direct) return direct;
 
   const ast = (
@@ -200,7 +269,7 @@ const fieldsOf = (schema: unknown): Readonly<Record<string, Schema.Schema.Any>> 
   ).ast;
   if (!ast?.propertySignatures) return undefined;
 
-  const out: Record<string, Schema.Schema.Any> = {};
+  const out: Record<string, Schema.Top> = {};
   for (const sig of ast.propertySignatures) {
     out[String(sig.name)] = (Schema as any).make(sig.type);
   }
@@ -229,17 +298,20 @@ export const createLiveStoreDb = <T extends GeneratedSchemas>(
 
     const tableName = tableMeta?.name ?? mName.toLowerCase();
 
-    tables[modelName] = State.SQLite.table({
-      name: tableName,
-      // Build the LiveStore table schema from `TABLES[model].columns`
-      // directly, mapping `'date'` columns to `Schema.DateFromString`.
-      // The upstream generator's `Schema.Date` expects a `Date` object,
-      // but LiveStore stores dates as ISO strings, so we can't reuse
-      // the auto-generated schema for the table def.
-      schema: tableMeta
-        ? toLiveStoreSchema(buildLiveStoreTableSchema(modelName, tableMeta))
-        : toLiveStoreSchema(modelSchema),
-    });
+    // When we have the generator's `TABLES` metadata we build explicit
+    // SQLite columns. This avoids a LiveStore quirk where passing a schema
+    // causes date columns to be derived from the decoded `Date` type and
+    // stored as JSON (double-quoted ISO strings). With explicit columns,
+    // `date` fields become `State.SQLite.datetime` (text + DateFromString).
+    tables[modelName] = tableMeta
+      ? State.SQLite.table({
+          name: tableName,
+          columns: buildColumns(tableMeta),
+        })
+      : State.SQLite.table({
+          name: tableName,
+          schema: toLiveStoreSchema(modelSchema),
+        });
 
     if (tableMeta && !tableMeta.includedInSync) {
       readOnly[modelName] = true;
@@ -317,7 +389,7 @@ export const createLiveStoreDb = <T extends GeneratedSchemas>(
     for (const [name, input] of Object.entries(config.clientDocuments)) {
       const isInput = (i: unknown): i is ClientDocumentInput =>
         typeof i === "object" && i !== null && "schema" in (i as object);
-      const docSchema = (isInput(input) ? input.schema : input) as Schema.Schema.Any;
+      const docSchema = (isInput(input) ? input.schema : input) as Schema.Top;
       const default_ = isInput(input) ? input.default : undefined;
       const args: { name: string; schema: unknown; default?: unknown } = {
         name,

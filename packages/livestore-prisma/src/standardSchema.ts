@@ -1,9 +1,10 @@
 /**
- * Wrap an Effect schema with `Schema.standardSchemaV1(...)` so its
- * `Context` narrows to `never`. Required for `State.SQLite.table({ schema })`
- * and `Events.synced({ schema })` (both want `Schema.Schema.AnyNoContext`).
+ * Wrap an Effect schema with `Schema.toStandardSchemaV1(...)` so its
+ * `DecodingServices` / `EncodingServices` narrow to `never`. Required
+ * for `State.SQLite.table({ schema })` and `Events.synced({ schema })`
+ * (both want `Schema.Codec` with no service requirements).
  *
- * `prisma-effect-schema-generator@0.1.8` already emits this wrapper
+ * `prisma-effect-schema-generator@0.1.9` already emits this wrapper
  * for model schemas when `standardSchemaV1 = "true"`. The helper
  * below is for ad-hoc `Schema.Struct(...)` shapes that we build
  * inside `createLiveStoreDb` (e.g. the `{ id, deletedAt }` shape for
@@ -13,8 +14,11 @@
 import { Schema, State } from "@livestore/livestore";
 
 export const toStandardSchemaV1 = <A, I>(
-  schema: Schema.Schema<A, I, unknown>,
-): Schema.Schema<A, I, never> => Schema.standardSchemaV1(schema as Schema.Schema<A, I, never>);
+  schema: Schema.Codec<A, I, unknown, unknown>,
+): Schema.Codec<A, I, never, never> =>
+  Schema.toStandardSchemaV1(
+    schema as unknown as Parameters<typeof Schema.toStandardSchemaV1>[0],
+  ) as unknown as Schema.Codec<A, I, never, never>;
 
 /**
  * Type-system bridge: LiveStore's `State.SQLite.table({ schema })`

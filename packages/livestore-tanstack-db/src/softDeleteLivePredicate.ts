@@ -9,7 +9,7 @@ import { Schema } from "@livestore/livestore";
  * Override the field name via {@link column}.
  */
 export const softDeleteLivePredicate = <TRow extends Record<string, unknown>>(
-  schema: Schema.Schema.Any,
+  schema: Schema.Top,
   options: { column?: string } = {},
 ): ((row: TRow) => boolean) => {
   const column = options.column ?? "deletedAt";
@@ -29,7 +29,7 @@ type PropertySignature = {
   readonly annotations: Record<string, unknown> & Record<symbol, unknown>;
 };
 
-const propertySignaturesOf = (schema: Schema.Schema.Any): PropertySignature[] => {
+const propertySignaturesOf = (schema: Schema.Top): PropertySignature[] => {
   const direct = (schema.ast as { propertySignatures?: ReadonlyArray<PropertySignature> })
     .propertySignatures;
   return Array.isArray(direct) ? [...direct] : [];

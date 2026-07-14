@@ -41,6 +41,11 @@ export interface UseTableLiveStore {
   events: Record<string, any>;
   schema: unknown;
   /**
+   * Per-model read-only flags (server-authoritative tables). Typically
+   * sourced from `createLiveStoreDb(...)`'s `readOnly` output.
+   */
+  readOnly?: Record<string, boolean>;
+  /**
    * Tier 0.6 — optional oRPC client. Either set on
    * <LiveStoreProvider oRPC={...}> (then `useTable` auto-derives
    * `rpc.client` from it) or supplied explicitly alongside a
@@ -138,7 +143,7 @@ const defaultWhereFromSchema = (schema: unknown): Record<string, unknown> => {
  * schema walker can't determine the pk.
  */
 const getKeyFromTable = (schema: unknown): ((row: LiveStoreRow) => string) => {
-  // The schema field on a LiveStore table def is `Schema.Schema.Any` from
+  // The schema field on a LiveStore table def is `Schema.Top` from
   // `@livestore/livestore`. We accept `unknown` here because the column
   // walker tolerates `null` / non-schema inputs and falls back to a
   // `row.id` lookup.
@@ -208,7 +213,7 @@ const makeCommitUpdate = (store: Store<any>, name: TableName, events: Record<str
       changeEntries.length > 0 && changeEntries.every(([, v]) => typeof v === "boolean");
 
     if (onlyBooleans) {
-for (const [field, value] of changeEntries) {
+      for (const [field, value] of changeEntries) {
         if (typeof value !== "boolean") continue;
         // Match `createLiveStoreDb`'s `eventSuffixesFor`: a field whose
         // PascalCase form already ends in "Completed" emits just
@@ -406,13 +411,13 @@ export const getCollection = <TName extends TableName>(
   if (cached) return cached;
 
   const tableDef = (liveStore.tables as Record<string, any>)[name];
-  const tableSchema = tableDef?.schema as unknown;
+  const tableSchema = (tableDef?.rowSchema ?? tableDef?.schema) as unknown;
   const table = where
     ? tableDef.where(where)
     : buildQuery(name, liveStore.tables as Record<string, any>, tableSchema);
 
   const live = liveStore.events as Record<string, any>;
-  const isReadOnly = Boolean((liveStore.tables as Record<string, any>)[name]?.["__readOnly"]);
+  const isReadOnly = Boolean((liveStore.readOnly as Record<string, boolean> | undefined)?.[name]);
 
   // Auto-derive commit handlers unless the caller overrode them.
   const auto = isReadOnly ? {} : buildCommitCallbacks(store, name, live);
@@ -563,7 +568,7 @@ export const useTable = <TName extends TableName>(
     collection: collection as Collection<LiveStoreRow, string>,
     table: buildQuery(name, liveStore.tables as Record<string, any>) as never,
     schema: liveStore.schema,
-    isReadOnly: Boolean((liveStore.tables as Record<string, any>)[name]?.["__readOnly"]),
+    isReadOnly: Boolean((liveStore.readOnly as Record<string, boolean> | undefined)?.[name]),
   };
 };
 

@@ -1,3 +1,7 @@
+// The Effect v4 snapshot is patched in-place at install time by
+// `scripts/patch-schedule.mjs` (see `postinstall` in package.json).
+// No runtime shim needed here.
+
 import type { CfTypes } from "@livestore/sync-cf/cf-worker";
 import * as SyncBackend from "@livestore/sync-cf/cf-worker";
 
@@ -24,7 +28,7 @@ const SyncBackendDOBase = SyncBackend.makeDurableObject({
     }
 
     const statement = db.prepare("INSERT INTO events (store_id, name, args) VALUES (?1, ?2, ?3)");
-    const rows = message.batch.map((event) =>
+    const rows = message.batch.map((event: { name: unknown; args: unknown }) =>
       statement.bind(context.storeId, String(event.name), JSON.stringify(event.args)),
     );
 

@@ -31,11 +31,11 @@
     "@tanstack/react-devtools": "^0.10.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
-    "effect": "^3.21.0",
+    "effect": "^4.0.0-beta",
     "typescript": "^5.4.0"
   },
   "peerDependencies": {
-    "@livestore/livestore": "^0.4.0",
+    "@livestore/livestore": "npm:@livestore/livestore@snapshot",
     "@tanstack/db": "^0.6.0",
     "effect": "^3.0.0 || ^4.0.0",
     "react": "^19.0.0"
