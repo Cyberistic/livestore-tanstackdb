@@ -21,9 +21,11 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test"
   },
+  "dependencies": {
+    "@prisma/generator-helper": "^7.0.0"
+  },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.0.0",
-    "@prisma/generator-helper": "^7.0.0",
     "@types/node": "^26.1.1",
     "effect": "^4.0.0-beta",
     "typescript": "^5.4.0"
