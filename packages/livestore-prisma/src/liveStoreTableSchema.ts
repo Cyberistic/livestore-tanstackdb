@@ -66,7 +66,10 @@ export const buildLiveStoreTableSchema = (
     const builder = COLUMN_TYPE_TO_SCHEMA[col.type];
     if (!builder) return [];
     const base = builder();
-    return [[col.name, (col.required ? base : Schema.optional(base)) as Schema.Top]];
+    // Non-nullable columns get the base codec verbatim; nullable columns
+    // are wrapped in `NullOr` so the LiveStore row decoder accepts
+    // `null` for fields like `deletedAt: DateTime?`.
+    return [[col.name, (col.required ? base : Schema.NullOr(base)) as Schema.Top]];
   });
   const fields = Object.fromEntries(fieldPairs) as Parameters<typeof Schema.Struct>[0];
 

@@ -1,8 +1,7 @@
 import { Events, makeSchema, Schema, SessionIdSymbol, State } from "@livestore/livestore";
 
 import { toStandardSchemaV1, toLiveStoreSchema } from "./standardSchema.ts";
-import { buildLiveStoreTableSchema } from "./liveStoreTableSchema.ts";
-import type { ColumnDescriptor, PrimaryKeyColumns, SoftDeleteColumns, Tables } from "./types.ts";
+import type { ColumnDescriptor, PrimaryKeyColumns, SoftDeleteColumns, TableDescriptor, Tables } from "./types.ts";
 
 /**
  * The `prisma-effect-schema-generator` runtime contract.
@@ -159,6 +158,82 @@ const insertableSchemaFor = (
   return out;
 };
 
+/**
+ * Build explicit LiveStore SQLite column definitions from a `TableDescriptor`.
+ *
+ * Using explicit columns avoids a LiveStore schema-to-columns conversion quirk:
+ * `State.SQLite.table({ schema })` derives column types from the *decoded* type
+ * of each field. For `Schema.DateFromString` the decoded type is `Date`, so in
+ * Effect v4 the column becomes `json` and dates are stored as JSON strings
+ * (`"2026-07-14T08:30:36.938Z"`). That later fails row decoding because the
+ * row schema expects a plain ISO string.
+ *
+ * Explicit columns give us full control: `date` columns become
+ * `State.SQLite.datetime` (text + `DateFromString` codec), `boolean` becomes
+ * `State.SQLite.boolean`, etc.
+ */
+const buildColumns = (table: TableDescriptor): Record<string, any> => {
+  const columns: Record<string, any> = {};
+
+  for (const col of table.columns) {
+    const nullable = !col.required;
+    const isPrimaryKey = col.name === table.primaryKey;
+
+    const annotate = (s: Schema.Top): Schema.Top => {
+      let result = s;
+      if (isPrimaryKey) result = State.SQLite.withPrimaryKey(result);
+      if (col.unique) result = State.SQLite.withUnique(result);
+      return result;
+    };
+
+    const asCodec = (s: Schema.Top): Schema.Codec<any, any> => s as Schema.Codec<any, any>;
+
+    switch (col.type) {
+      case "string": {
+        columns[col.name] = State.SQLite.text({
+          schema: asCodec(annotate(Schema.String)),
+          nullable,
+          primaryKey: isPrimaryKey,
+        });
+        break;
+      }
+      case "number": {
+        columns[col.name] = State.SQLite.real({
+          schema: asCodec(annotate(Schema.Number)),
+          nullable,
+          primaryKey: isPrimaryKey,
+        });
+        break;
+      }
+      case "boolean": {
+        columns[col.name] = State.SQLite.boolean({ nullable, primaryKey: isPrimaryKey });
+        break;
+      }
+      case "date": {
+        columns[col.name] = State.SQLite.datetime({ nullable, primaryKey: isPrimaryKey });
+        break;
+      }
+      case "json":
+      case "unknown": {
+        columns[col.name] = State.SQLite.json({
+          schema: asCodec(Schema.Unknown),
+          nullable,
+          primaryKey: isPrimaryKey,
+        });
+        break;
+      }
+      case "bytes": {
+        columns[col.name] = State.SQLite.blob({ nullable, primaryKey: isPrimaryKey });
+        break;
+      }
+      default:
+        continue;
+    }
+  }
+
+  return columns;
+};
+
 const eventSuffixesFor = (fieldName: string): { on: string; off: string } => {
   const cap = capitalize(fieldName);
   if (cap.endsWith("Completed")) {
@@ -223,17 +298,20 @@ export const createLiveStoreDb = <T extends GeneratedSchemas>(
 
     const tableName = tableMeta?.name ?? mName.toLowerCase();
 
-    tables[modelName] = State.SQLite.table({
-      name: tableName,
-      // Build the LiveStore table schema from `TABLES[model].columns`
-      // directly, mapping `'date'` columns to `Schema.DateFromString`.
-      // The upstream generator's `Schema.Date` expects a `Date` object,
-      // but LiveStore stores dates as ISO strings, so we can't reuse
-      // the auto-generated schema for the table def.
-      schema: tableMeta
-        ? toLiveStoreSchema(buildLiveStoreTableSchema(modelName, tableMeta))
-        : toLiveStoreSchema(modelSchema),
-    });
+    // When we have the generator's `TABLES` metadata we build explicit
+    // SQLite columns. This avoids a LiveStore quirk where passing a schema
+    // causes date columns to be derived from the decoded `Date` type and
+    // stored as JSON (double-quoted ISO strings). With explicit columns,
+    // `date` fields become `State.SQLite.datetime` (text + DateFromString).
+    tables[modelName] = tableMeta
+      ? State.SQLite.table({
+          name: tableName,
+          columns: buildColumns(tableMeta),
+        })
+      : State.SQLite.table({
+          name: tableName,
+          schema: toLiveStoreSchema(modelSchema),
+        });
 
     if (tableMeta && !tableMeta.includedInSync) {
       readOnly[modelName] = true;
