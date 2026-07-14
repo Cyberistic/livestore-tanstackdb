@@ -28,7 +28,7 @@
     "@cloudflare/workers-types": "^4.0.0",
     "@types/node": "^26.1.1",
     "effect": "^4.0.0-beta",
-    "typescript": "^5.4.0"
+    "typescript": "^5.7.0"
   },
   "peerDependencies": {
     "@livestore/livestore": "npm:@livestore/livestore@snapshot",
