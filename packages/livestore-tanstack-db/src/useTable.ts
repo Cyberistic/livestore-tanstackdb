@@ -57,7 +57,9 @@ export interface UseTableLiveStore {
    * `createLiveStoreDb`'s `softDeleteColumns` input — `deleteEventKey`
    * payloads (`commitDelete`) use the configured column instead of the
    * hardcoded `"deletedAt"`. Falls back to schema-driven detection via
-   * `softDeleteColumnFromSchema(tableSchema)`, then to `"deletedAt"`.
+   * `softDeleteColumnFromSchema(tableSchema)`. When neither produces a
+   * match, `commitDelete` is left synthesised (callers can still wire
+   * one explicitly via `UseTableOptions.commitDelete`).
    */
   softDeleteColumns?: Record<string, string>;
 }
@@ -275,7 +277,7 @@ export const buildCommitCallbacks = (
   store: Store<any>,
   name: TableName,
   events: Record<string, any>,
-  softDeleteColumn: string = "deletedAt",
+  softDeleteColumn: string | null = null,
 ): {
   commitInsert?: MutationCallbacks["commitInsert"];
   commitBulkInsert?: MutationCallbacks["commitBulkInsert"];
@@ -283,15 +285,22 @@ export const buildCommitCallbacks = (
   commitDelete?: MutationCallbacks["commitDelete"];
 } => {
   if (!(events as Record<string, any>)[`${name}Set`]) {
-    // Synced table — has Created/Deleted events
+    // Synced table — has Created/Deleted events. The synthesised
+    // `commitDelete` is a soft-delete handler: it emits `${name}Deleted`
+    // with `{ id, [softDeleteColumn]: new Date() }`. Skip synthesising
+    // it when no soft-delete column is known — e.g. a table that never
+    // had a soft-delete column, or a caller that wants a hard-delete
+    // event and will wire their own `commitDelete` override.
     const base: {
       commitInsert: MutationCallbacks["commitInsert"];
-      commitDelete: MutationCallbacks["commitDelete"];
+      commitDelete?: MutationCallbacks["commitDelete"];
       commitUpdate: MutationCallbacks["commitUpdate"];
       commitBulkInsert?: MutationCallbacks["commitBulkInsert"];
     } = {
       commitInsert: makeCommitInsert(store, name, events),
-      commitDelete: makeCommitDelete(store, name, events, softDeleteColumn),
+      ...(softDeleteColumn
+        ? { commitDelete: makeCommitDelete(store, name, events, softDeleteColumn) }
+        : {}),
       commitUpdate: makeCommitUpdate(store, name, events),
     };
     const bulk = makeCommitBulkInsert(store, name, events);
@@ -454,13 +463,14 @@ export const getCollection = <TName extends TableName>(
   const isReadOnly = Boolean((liveStore.readOnly as Record<string, boolean> | undefined)?.[name]);
 
   // Resolve the soft-delete column from the most specific source first,
-  // falling back through the schema walker and finally `"deletedAt"`.
+  // falling back through the schema walker and finally `null` (which
+  // tells `buildCommitCallbacks` to skip synthesising `commitDelete`).
   // Mirrors `createLiveStoreDb`'s precedence: explicit per-model map
-  // (`softDeleteColumns[model]`) → schema-detection → `"deletedAt"`.
+  // (`softDeleteColumns[model]`) → schema-detection → omit.
   const softDeleteColumn =
     (liveStore.softDeleteColumns as Record<string, string> | undefined)?.[name] ??
     softDeleteColumnFromSchema(tableSchema) ??
-    "deletedAt";
+    null;
 
   // Auto-derive commit handlers unless the caller overrode them.
   const auto = isReadOnly
@@ -487,7 +497,7 @@ export const getCollection = <TName extends TableName>(
         rpcClient: rpc.client,
         rpcConfig: rpc.config,
         onRpcError: rpc.onError,
-        softDeleteColumn,
+        softDeleteColumn: softDeleteColumn ?? undefined,
       })
     : null;
 

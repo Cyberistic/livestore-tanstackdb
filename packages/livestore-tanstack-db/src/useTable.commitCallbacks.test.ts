@@ -56,12 +56,59 @@ describe("buildCommitCallbacks — synced table insert (regression guard)", () =
     const store = { commit: jest.fn() } as any;
     const events = { todoCreated: createdEvent, todoDeleted: deletedEvent };
 
-    const callbacks = buildCommitCallbacks(store, "Todo", events);
+    const callbacks = buildCommitCallbacks(store, "Todo", events, "deletedAt");
 
     callbacks.commitInsert!({ id: "1", title: "buy milk" } as never);
 
     expect(createdEvent).toHaveBeenCalledTimes(1);
     expect(createdEvent).toHaveBeenCalledWith({ id: "1", title: "buy milk" });
     expect(store.commit).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("buildCommitCallbacks — commitDelete skipping", () => {
+  test("synthesises a soft-delete commitDelete when a column is provided", () => {
+    const deletedEvent = jest.fn();
+    const store = { commit: jest.fn() } as any;
+    const events = { todoCreated: jest.fn(), todoDeleted: deletedEvent };
+
+    const callbacks = buildCommitCallbacks(store, "Todo", events, "deletedAt");
+
+    expect(typeof callbacks.commitDelete).toBe("function");
+    callbacks.commitDelete!({ id: "1" } as never);
+
+    expect(deletedEvent).toHaveBeenCalledTimes(1);
+    expect(deletedEvent).toHaveBeenCalledWith({
+      id: "1",
+      deletedAt: expect.any(Date),
+    });
+    expect(store.commit).toHaveBeenCalledTimes(1);
+  });
+
+  test("omits commitDelete when no softDeleteColumn is provided (no caller override)", () => {
+    // Upstream-friendly: a synced table whose schema never had a soft-delete
+    // column shouldn't auto-emit a `Deleted` event the caller can't safely
+    // fire. The synthesised commitDelete is skipped; callers can still wire
+    // their own via `UseTableOptions.commitDelete` or RPC write-back.
+    const deletedEvent = jest.fn();
+    const store = { commit: jest.fn() } as any;
+    const events = { todoCreated: jest.fn(), todoDeleted: deletedEvent };
+
+    const callbacks = buildCommitCallbacks(store, "Todo", events);
+
+    expect(callbacks.commitDelete).toBeUndefined();
+    expect(callbacks.commitInsert).toBeDefined();
+    expect(callbacks.commitUpdate).toBeDefined();
+    expect(store.commit).not.toHaveBeenCalled();
+  });
+
+  test("omits commitDelete when softDeleteColumn is explicitly null", () => {
+    const deletedEvent = jest.fn();
+    const store = { commit: jest.fn() } as any;
+    const events = { todoCreated: jest.fn(), todoDeleted: deletedEvent };
+
+    const callbacks = buildCommitCallbacks(store, "Todo", events, null);
+
+    expect(callbacks.commitDelete).toBeUndefined();
   });
 });
