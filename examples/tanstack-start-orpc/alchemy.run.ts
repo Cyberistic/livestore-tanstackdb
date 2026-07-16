@@ -1,28 +1,42 @@
-import alchemy from "alchemy";
-import { D1Database, DurableObjectNamespace, TanStackStart } from "alchemy/cloudflare";
+import * as Alchemy from "alchemy";
+import * as Cloudflare from "alchemy/Cloudflare";
+import * as Effect from "effect/Effect";
 
-const app = await alchemy("tanstack-start-orpc-example");
-
-export const db = await D1Database("todos-db", {
+export const db = Cloudflare.D1.Database("todos-db", {
   name: "todos-db",
   primaryLocationHint: "wnam",
   migrationsDir: "./prisma/migrations",
   migrationsTable: "d1_migrations",
 });
 
-export const syncBackend = await DurableObjectNamespace("sync-backend", {
+export const syncBackend = Cloudflare.DurableObject("sync-backend", {
   className: "SyncBackendDO",
-  sqlite: true,
 });
 
-export const site = await TanStackStart("tanstack-start-orpc", {
-  bindings: {
+export class Site extends Cloudflare.Website.Vite<Site>()("Site", {
+  name: "tanstack-start-orpc",
+  compatibility: {
+    flags: ["nodejs_compat"],
+  },
+  env: {
     DB: db,
     SYNC_BACKEND_DO: syncBackend,
   },
-  compatibilityFlags: ["nodejs_compat"],
-});
+  assets: {
+    runWorkerFirst: true,
+  },
+}) { }
 
-console.log(`Worker deployed at: ${site.url}`);
+export type SiteEnv = Cloudflare.InferEnv<typeof Site>;
 
-await app.finalize();
+export default Alchemy.Stack(
+  "TanstackStartOprcExample",
+  {
+    providers: Cloudflare.providers(),
+    state: Cloudflare.state(),
+  },
+  Effect.gen(function* () {
+    const site = yield* Site;
+    return { url: site.url.as<string>() };
+  }),
+);

@@ -89,10 +89,6 @@ This template is known-good against:
 | `wrangler`                  | `4.42.x` |
 | `prisma` / `@prisma/client` | `7.8.x`  |
 
-alchemy v2 (`alchemy@next`) is **not** supported — its transitive
-`@effect/*@0.x` tree collides with `@livestore/utils` (see the
-comment in `alchemy.run.ts`).
-
 ## Adapting `src/cf-worker/index.ts`
 
 The template assumes a worker entry shaped like:

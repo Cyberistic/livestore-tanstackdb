@@ -495,25 +495,6 @@ narrower `gen:spa` / `gen:start-orpc`) before restarting the dev
 server. The integration packages' `dist/` is what the apps import, so
 the rebuild step is mandatory for type changes to flow through.
 
-#### Postinstall patches
-
-The LiveStore snapshot at `0.0.0-snapshot-31d1eb100c8a16a303c32fa181565de9e8d6fe3f`
-was built against an Effect v4 beta that was published with
-`Schedule.bothLeft` intact. The next Effect beta removes it
-([effect-smol PR #2551](https://github.com/Effect-TS/effect-smol/pull/2551))
-and the snapshot hasn't been republished yet — so on a clean
-`bun install` the dev server throws
-`TypeError: Schedule.bothLeft is not a function` at module load.
-
-`scripts/patch-schedule.mjs` in each example rewrites
-`node_modules/@livestore/utils/dist/effect/Schedule.js` in place,
-swapping `Schedule.bothLeft(b)` for `Schedule.max([self, b])`. It's
-wired as a `postinstall` hook in each example's `package.json`, runs
-on every `bun install`, and is idempotent (skips if the file already
-contains the patched marker). Delete both the postinstall hook and
-the script once the LiveStore snapshot is republished against the
-next Effect beta.
-
 ## Files of interest
 
 | Path                                                       | What it does                                                        |

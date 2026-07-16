@@ -1,7 +1,3 @@
-// The Effect v4 snapshot is patched in-place at install time by
-// `scripts/patch-schedule.mjs` (see `postinstall` in package.json).
-// No runtime shim needed here.
-
 import { Schema, SessionIdSymbol } from "@livestore/livestore";
 import { createLiveStoreDb } from "livestore-prisma";
 

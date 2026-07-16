@@ -39,13 +39,6 @@ import {
  *
  *   bun run deploy     # plan + apply (rebuilds dist/ first)
  *   bun run destroy    # tear it all down
- *
- * NOTE on alchemy v2: we tried `alchemy@next` (2.0.0-beta.x) +
- * `effect@4`. Its transitive `@effect/*@0.x` tree (pulled in by
- * `@livestore/utils`) references effect@0.x runtime APIs (`TRef`,
- * `STM`, `Effect.merge`, `Effect.tryMap`, …) that aren't in any
- * published effect@4 beta on npm. PR #801 advanced it but the
- * migration isn't viable yet. Stay on v1 stable.
  */
 const app = await alchemy("{{AppName}}")
 

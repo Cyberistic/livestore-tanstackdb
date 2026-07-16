@@ -18,7 +18,6 @@
     "gen:start-orpc": "bunx prisma generate --schema=./examples/tanstack-start-orpc/prisma/schema.prisma"
   },
   "overrides": {
-    "effect": "4.0.0-beta.98",
-    "@cloudflare/vite-plugin": "1.13.12"
+    "effect": "4.0.0-beta.98"
   }
 }

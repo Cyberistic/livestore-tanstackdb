@@ -1,33 +1,42 @@
-import alchemy from "alchemy";
-import { D1Database, DurableObjectNamespace, Vite } from "alchemy/cloudflare";
+import * as Alchemy from "alchemy";
+import * as Cloudflare from "alchemy/Cloudflare";
+import * as Effect from "effect/Effect";
 
-const app = await alchemy("spa-example");
-
-export const db = await D1Database("todos-db", {
+export const db = Cloudflare.D1.Database("todos-db", {
   name: "todos-db",
   primaryLocationHint: "wnam",
   migrationsDir: "./prisma/migrations",
   migrationsTable: "d1_migrations",
 });
 
-export const syncBackend = await DurableObjectNamespace("sync-backend", {
+export const syncBackend = Cloudflare.DurableObject("sync-backend", {
   className: "SyncBackendDO",
-  sqlite: true,
 });
 
-export const site = await Vite("site", {
+export class Site extends Cloudflare.Website.Vite<Site>()("Site", {
   name: "livestore-tanstack-db-spa",
-  entrypoint: "./dist/spa_example_site/index.js",
-  assets: "./dist/client",
-  bindings: {
+  compatibility: {
+    flags: ["enable_request_signal", "nodejs_compat"],
+  },
+  env: {
     DB: db,
     SYNC_BACKEND_DO: syncBackend,
   },
+  assets: {
+    runWorkerFirst: true,
+  },
+}) {}
 
-  compatibilityFlags: ["enable_request_signal", "nodejs_compat"],
-  adopt: true,
-});
+export type SiteEnv = Cloudflare.InferEnv<typeof Site>;
 
-console.log(`Worker deployed at: ${site.url}`);
-
-await app.finalize();
+export default Alchemy.Stack(
+  "SpaExample",
+  {
+    providers: Cloudflare.providers(),
+    state: Cloudflare.state(),
+  },
+  Effect.gen(function* () {
+    const site = yield* Site;
+    return { url: site.url.as<string>() };
+  }),
+);

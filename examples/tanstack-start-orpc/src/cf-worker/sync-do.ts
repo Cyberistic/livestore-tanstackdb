@@ -1,7 +1,3 @@
-// The Effect v4 snapshot is patched in-place at install time by
-// `scripts/patch-schedule.mjs` (see `postinstall` in package.json).
-// No runtime shim needed here.
-
 import type { CfTypes } from "@livestore/sync-cf/cf-worker";
 import * as SyncBackend from "@livestore/sync-cf/cf-worker";
 

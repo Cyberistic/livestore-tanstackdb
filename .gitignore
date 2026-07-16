@@ -16,6 +16,7 @@ out/
 
 # Alchemy state
 .alchemy/
+packages/alchemy/
 
 # Prisma generated clients + local dev DB
 prisma/generated/
