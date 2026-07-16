@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.vite/
+.wrangler/
+.alchemy/
+prisma/generated/
+prisma/dev.db
+*.tsbuildinfo
+bun.lockb

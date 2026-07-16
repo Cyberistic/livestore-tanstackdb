@@ -1,0 +1,13 @@
+{
+  "$schema": "./livestore.annotations.schema.json",
+  "models": {
+    "Event": {
+      "serverOnly": true,
+      "comment": "DO writes via onPush; clients read-only"
+    },
+    "Todo": {
+      "softDeleteColumnOverride": null,
+      "comment": "Writes from the client; soft-delete via deletedAt is auto-detected by the upstream generator"
+    }
+  }
+}

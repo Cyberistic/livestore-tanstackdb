@@ -1,0 +1,49 @@
+{
+  "name": "livestore-prisma",
+  "version": "0.1.0",
+  "description": "LiveStore + TanStack DB glue for Prisma projects. Sibling package to prisma-effect-schema-generator. Reads schema.prisma + a sidecar livestore.annotations.json to emit LiveStore tables/events/materializers and provides runtime integration: createLiveStoreDb, useTable, createLazyDb, mutations, LiveStoreProvider.",
+  "bin": {
+    "prisma-livestore-generator": "./prisma-livestore-generator.cjs"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./generator": "./prisma-livestore-generator.cjs"
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@prisma/generator-helper": "^7.0.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.0.0",
+    "@types/node": "^26.1.1",
+    "effect": "^4.0.0-beta",
+    "typescript": "^5.7.0"
+  },
+  "peerDependencies": {
+    "@livestore/livestore": "npm:@livestore/livestore@snapshot",
+    "@tanstack/db": "^0.6.0",
+    "effect": "^3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@livestore/livestore": {
+      "optional": false
+    },
+    "@tanstack/db": {
+      "optional": false
+    },
+    "effect": {
+      "optional": false
+    }
+  }
+}

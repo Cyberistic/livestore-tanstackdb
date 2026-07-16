@@ -1,0 +1,82 @@
+// Prisma schema: the single source of truth for the LiveStore + TanStack DB
+// todo model. Three generators consume it:
+//
+//   1. `effect_client` — the published `prisma-effect-schema-generator`
+//      npm package. Emits `@livestore/utils/effect` `Schema.*` values
+//      plus the introspection maps the integration factory consumes
+//      (`PRIMARY_KEY_COLUMNS`, `SOFT_DELETE_COLUMNS`, `TABLES`).
+//
+//   2. `livestore` — the in-repo `livestore-prisma` package's
+//      generator. Reads a sidecar `livestore.annotations.json` for
+//      per-table flags (serverOnly, custom event names) and emits
+//      LiveStore-specific code: tables, events, materializers,
+//      makeSchema. The annotations file is the per-table flag surface
+//      — no regex guessing.
+//
+//   3. `client` — the standard Prisma Client, useful for ad-hoc D1 reads.
+//
+// `provider = "sqlite"` is what Prisma uses for local type checking +
+// migration generation. The actual D1 database is provisioned by
+// Alchemy (`alchemy.run.ts`) and Prisma's migration SQL is diff'd into
+// `prisma/migrations/` then pointed at via `Cloudflare.D1.Database`'s
+// `migrationsDir`.
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+generator effect_client {
+  provider            = "prisma-effect-schema-generator"
+  output              = "./generated/client-schemas/index.ts"
+  // Introspection maps the integration factory consumes:
+  idColumn            = "true"
+  softDeleteColumn    = "true"
+  tables              = "true"
+  exportModelNames    = "true"
+  exportModelNameType = "true"
+  // Effect v4 emits `Schema.toStandardSchemaV1(...)` instead of the
+  // removed `Schema.standardSchemaV1(...)`. Pairs with the LiveStore
+  // snapshot that bumped to `effect: ^4.0.0-beta`.
+  effectVersion       = "v4"
+  standardSchemaV1    = "true"
+  // In v4 `"Date"` maps to `Schema.DateFromString` (decodes ISO strings
+  // → Date), `"DateFromSelf"` maps to the strict `Schema.Date` (only
+  // accepts Date instances). LiveStore stores dates in SQLite as ISO
+  // strings, so we want the lenient codec.
+  dateAs              = "Date"
+}
+
+model Todo {
+  id        String    @id
+  text      String
+  completed Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("todos")
+}
+
+// LiveStore's `events` log. This is the durable, queryable mirror that
+// the LiveStore sync-cf Durable Object writes to on every `onPush`. It
+// is *not* the source of truth — LiveStore's own SQLite event log is —
+// but it lets you replay history into other systems, run analytics, or
+// rebuild a region from a backup.
+//
+// serverOnly: see `prisma/livestore.annotations.json`. The
+// `prisma-livestore-generator` reads that flag and emits the table
+// without commit handlers, so consumers can't accidentally .insert
+// or .update on it from a TanStack DB collection.
+model Event {
+  id        Int      @id @default(autoincrement())
+  storeId   String   @map("store_id")
+  name      String
+  args      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([storeId, id])
+  @@map("events")
+}

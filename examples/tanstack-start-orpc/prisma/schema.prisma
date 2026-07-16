@@ -1,0 +1,54 @@
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+generator effect_client {
+  provider            = "prisma-effect-schema-generator"
+  output              = "./generated/client-schemas/index.ts"
+  idColumn            = "true"
+  softDeleteColumn    = "true"
+  tables              = "true"
+  exportModelNames    = "true"
+  exportModelNameType = "true"
+  // Effect v4 emits `Schema.toStandardSchemaV1(...)` instead of the
+  // removed `Schema.standardSchemaV1(...)`. Pairs with the LiveStore
+  // snapshot that bumped to `effect: ^4.0.0-beta`.
+  effectVersion       = "v4"
+  standardSchemaV1    = "true"
+  dateAs              = "Date"
+}
+
+generator livestore {
+  // Resolved via the `bin` field on the `livestore-prisma` workspace
+  // package, which every example depends on via `file:../../packages/...`.
+  // Same shape as `effect_client` above — no relative path to break.
+  provider          = "prisma-livestore-generator"
+  output            = "./generated/livestore"
+  clientSchemasPath = "./generated/client-schemas/index.ts"
+}
+
+model Todo {
+  id        String    @id
+  text      String
+  completed Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("todos")
+}
+
+model Event {
+  id        Int      @id @default(autoincrement())
+  storeId   String   @map("store_id")
+  name      String
+  args      String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([storeId, id])
+  @@map("events")
+}
