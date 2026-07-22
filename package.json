@@ -19,5 +19,10 @@
   },
   "overrides": {
     "effect": "4.0.0-beta.98"
+  },
+  "dependencies": {
+    "@distilled.cloud/cloudflare-rolldown-plugin": "^0.13.7",
+    "@distilled.cloud/cloudflare-runtime": "^0.13.7",
+    "@distilled.cloud/cloudflare-vite-plugin": "^0.13.7"
   }
 }

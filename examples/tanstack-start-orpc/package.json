@@ -33,7 +33,7 @@
     "effect": "4.0.0-beta.98",
     "livestore-prisma": "file:../../packages/livestore-prisma",
     "livestore-tanstack-db": "file:../../packages/livestore-tanstack-db",
-    "alchemy": "workspace:*",
+    "alchemy": "2.0.0-beta.64",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "todomvc-app-css": "2.4.3",
