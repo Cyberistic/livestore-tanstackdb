@@ -22,9 +22,6 @@ export class Site extends Cloudflare.Website.Vite<Site>()("Site", {
     DB: db,
     SYNC_BACKEND_DO: syncBackend,
   },
-  assets: {
-    runWorkerFirst: true,
-  },
 }) { }
 
 export type SiteEnv = Cloudflare.InferEnv<typeof Site>;
